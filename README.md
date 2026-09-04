@@ -4,6 +4,8 @@ A cloud-native, production-style **agentic RAG system** designed to exercise the
 
 ## Architecture
 
+![Proposed architecture showing the web client, Kubernetes services, retrieval stores, GPU inference backends, and observability.](docs/diagrams/architecture.png)
+
 | Component | Choice | Why |
 | --- | --- | --- |
 | Frontend | React + TypeScript | Matches the JD's JavaScript requirement and keeps the UI realistic but lightweight. |
@@ -17,6 +19,8 @@ A cloud-native, production-style **agentic RAG system** designed to exercise the
 | Observability | Prometheus + Grafana + OpenTelemetry | Measures system health and traces latency across services. |
 
 ## Request Flow
+
+![Proposed agentic request flow with optional retrieval, a query-rewrite loop, inference, and a cited response.](docs/diagrams/request-flow.png)
 
 1. User submits a question.
 2. Agent decides whether retrieval is needed.
