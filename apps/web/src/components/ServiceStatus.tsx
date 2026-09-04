@@ -1,6 +1,6 @@
 interface ServiceStatusProps {
   label: string;
-  status: "ready" | "unavailable";
+  status: "healthy" | "degraded" | "offline";
 }
 
 export function ServiceStatus({ label, status }: ServiceStatusProps) {
@@ -8,7 +8,7 @@ export function ServiceStatus({ label, status }: ServiceStatusProps) {
     <div className="status" role="status">
       <span aria-hidden="true" className={`status__dot status__dot--${status}`} />
       <span>{label}</span>
-      <strong>{status}</strong>
+      <strong className="sr-only">{status}</strong>
     </div>
   );
 }
