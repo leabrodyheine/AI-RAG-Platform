@@ -34,6 +34,22 @@ A **cloud-native AI system** that benchmarks and monitors its own performance, t
 
 Run the full stack locally with Docker and Kubernetes (`kind` or Minikube). GPU workloads are isolated behind the inference service so they can run locally when available or in a free NVIDIA GPU environment.
 
+## Repository Layout
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/web/` | React and TypeScript web client. |
+| `services/` | Independently packaged API gateway, agent, retrieval, and inference services. |
+| `runtimes/` | vLLM and Triton/TensorRT-LLM runtime configuration. |
+| `evaluation/` | Offline quality and performance evaluation. |
+| `load-tests/` | Reproducible load scenarios and local results. |
+| `contracts/` | Versioned schemas exchanged across service boundaries. |
+| `infra/` | Docker Compose, Kubernetes, and observability configuration. |
+| `tests/` | Cross-service integration and end-to-end tests. |
+| `docs/` | Architecture decisions, diagrams, operations, and published reports. |
+
+Each service owns its dependencies, unit tests, and Dockerfile. Services communicate through explicit network contracts and do not import each other's implementation code.
+
 Kubernetes configuration includes:
 
 - Deployments and Services
