@@ -1,6 +1,6 @@
 # AI Production Evaluation Platform
 
-A cloud-native, production-style **agentic RAG system** designed to exercise the same skills required for NVIDIA's *Systems Software Engineer — AI and Cloud* role: microservices, Kubernetes, LLM inference, RAG, API design, benchmarking, observability, and technical evaluation.
+A **cloud-native AI system** that benchmarks and monitors its own performance, then uses an agentic RAG interface to let engineers investigate performance results, identify bottlenecks, and compare architectural configurations using natural-language questions.
 
 ## Architecture
 
