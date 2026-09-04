@@ -1,0 +1,44 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+htmlcov/
+.coverage
+
+# JavaScript
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local data, model artifacts, and benchmark output
+data/
+models/
+evaluation/datasets/*
+!evaluation/datasets/README.md
+evaluation/reports/*
+!evaluation/reports/README.md
+load-tests/results/*
+!load-tests/results/README.md
+runtimes/triton/model_repository/*/
+
+# Local infrastructure state
+*.log
+*.pid
+.terraform/
+terraform.tfstate*
