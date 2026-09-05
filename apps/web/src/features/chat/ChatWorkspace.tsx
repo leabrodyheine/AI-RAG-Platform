@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, KeyboardEvent, useState } from "react";
 import {
   ArrowUp,
   BookOpen,
@@ -13,11 +13,11 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { askQuestion, isDemoMode } from "../../api/platform";
+import { askQuestion, ChatApiError, isDemoMode } from "../../api/platform";
 import { initialAnswer, suggestedQuestions } from "../../api/platformFixtures";
 import type { ChatMessage, Citation, TraceStep } from "../../types/platform";
 
-const initialMessages: ChatMessage[] = [
+const demoMessages: ChatMessage[] = [
   {
     id: "question-1",
     role: "user",
@@ -31,29 +31,40 @@ const initialMessages: ChatMessage[] = [
   },
 ];
 
+interface SubmissionError {
+  message: string;
+  requestId?: string;
+}
+
 export function ChatWorkspace() {
-  const [messages, setMessages] = useState(initialMessages);
-  const [trace, setTrace] = useState<TraceStep[]>(initialAnswer.trace);
-  const [duration, setDuration] = useState(initialAnswer.totalDurationMs);
+  const [messages, setMessages] = useState<ChatMessage[]>(isDemoMode ? demoMessages : []);
+  const [trace, setTrace] = useState<TraceStep[]>(isDemoMode ? initialAnswer.trace : []);
+  const [duration, setDuration] = useState<number | null>(
+    isDemoMode ? initialAnswer.totalDurationMs : null,
+  );
   const [question, setQuestion] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SubmissionError | null>(null);
+  const [failedQuestion, setFailedQuestion] = useState<string | null>(null);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
-    initialAnswer.citations[0],
+    isDemoMode ? initialAnswer.citations[0] : null,
   );
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
-  async function submitQuestion(nextQuestion: string) {
+  async function submitQuestion(nextQuestion: string, appendQuestion = true) {
     const trimmedQuestion = nextQuestion.trim();
     if (!trimmedQuestion || isSubmitting) return;
 
     setError(null);
+    setFailedQuestion(null);
     setQuestion("");
     setIsSubmitting(true);
-    setMessages((current) => [
-      ...current,
-      { id: `question-${Date.now()}`, role: "user", content: trimmedQuestion },
-    ]);
+    if (appendQuestion) {
+      setMessages((current) => [
+        ...current,
+        { id: `question-${Date.now()}`, role: "user", content: trimmedQuestion },
+      ]);
+    }
 
     try {
       const answer = await askQuestion(trimmedQuestion);
@@ -70,7 +81,11 @@ export function ChatWorkspace() {
       setDuration(answer.totalDurationMs);
       setSelectedCitation(answer.citations[0] ?? null);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "The request failed.");
+      setFailedQuestion(trimmedQuestion);
+      setError({
+        message: caughtError instanceof Error ? caughtError.message : "The request failed.",
+        requestId: caughtError instanceof ChatApiError ? caughtError.requestId : undefined,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -81,12 +96,20 @@ export function ChatWorkspace() {
     void submitQuestion(question);
   }
 
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    }
+  }
+
   function resetInvestigation() {
-    setMessages(initialMessages);
-    setTrace(initialAnswer.trace);
-    setDuration(initialAnswer.totalDurationMs);
-    setSelectedCitation(initialAnswer.citations[0]);
+    setMessages(isDemoMode ? demoMessages : []);
+    setTrace(isDemoMode ? initialAnswer.trace : []);
+    setDuration(isDemoMode ? initialAnswer.totalDurationMs : null);
+    setSelectedCitation(isDemoMode ? initialAnswer.citations[0] : null);
     setError(null);
+    setFailedQuestion(null);
     setQuestion("");
   }
 
@@ -107,7 +130,12 @@ export function ChatWorkspace() {
           <h1>Ask the system</h1>
           <p>Trace performance regressions and compare model behavior with cited evidence.</p>
         </div>
-        <button className="secondary-button" onClick={resetInvestigation} type="button">
+        <button
+          className="secondary-button"
+          disabled={isSubmitting}
+          onClick={resetInvestigation}
+          type="button"
+        >
           <RotateCcw size={15} />
           New investigation
         </button>
@@ -116,11 +144,20 @@ export function ChatWorkspace() {
       <div className="investigation-layout">
         <section className="conversation-card" aria-label="Investigation conversation">
           <div className="conversation-card__meta">
-            <span>Investigation #1842</span>
-            <span><Clock3 size={14} /> Updated just now</span>
+            <span>Current investigation</span>
+            <span>
+              <Clock3 size={14} /> {messages.length > 0 ? "Updated just now" : "Ready for a question"}
+            </span>
           </div>
 
-          <div className="conversation">
+          <div className="conversation" aria-busy={isSubmitting} aria-live="polite">
+            {messages.length === 0 && (
+              <div className="conversation-empty">
+                <Sparkles size={18} />
+                <strong>Start an investigation</strong>
+                <span>Ask a question below to retrieve evidence and inspect the request trace.</span>
+              </div>
+            )}
             {messages.map((message) => (
               <article className={`message message--${message.role}`} key={message.id}>
                 <div className="message__avatar" aria-hidden="true">
@@ -174,10 +211,31 @@ export function ChatWorkspace() {
           </div>
 
           <div className="composer-area">
-            {error && <p className="error-banner">{error}</p>}
+            {error && (
+              <div className="error-banner" role="alert">
+                <span>
+                  {error.message}
+                  {error.requestId && <small>Request ID: {error.requestId}</small>}
+                </span>
+                {failedQuestion && (
+                  <button
+                    disabled={isSubmitting}
+                    onClick={() => void submitQuestion(failedQuestion, false)}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
+            )}
             <div className="suggestion-row" aria-label="Suggested questions">
               {suggestedQuestions.map((suggestion) => (
-                <button key={suggestion} onClick={() => void submitQuestion(suggestion)} type="button">
+                <button
+                  disabled={isSubmitting}
+                  key={suggestion}
+                  onClick={() => void submitQuestion(suggestion)}
+                  type="button"
+                >
                   {suggestion}
                 </button>
               ))}
@@ -185,13 +243,15 @@ export function ChatWorkspace() {
             <form className="composer" onSubmit={handleSubmit}>
               <textarea
                 aria-label="Ask a question"
+                disabled={isSubmitting}
                 onChange={(event) => setQuestion(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
                 placeholder="Ask about latency, quality, retrieval, or infrastructure…"
                 rows={2}
                 value={question}
               />
               <div className="composer__footer">
-                <span><Database size={14} /> Evaluation index · 1,284 documents</span>
+                <span><Database size={14} /> Evaluation index</span>
                 <button aria-label="Send question" disabled={!question.trim() || isSubmitting} type="submit">
                   <ArrowUp size={17} />
                 </button>
@@ -204,7 +264,7 @@ export function ChatWorkspace() {
           <section className="panel-section">
             <div className="panel-heading">
               <span><Gauge size={16} /> Request trace</span>
-              <strong>{duration} ms</strong>
+              <strong>{duration === null ? "—" : `${duration} ms`}</strong>
             </div>
             <div className="trace-list">
               {trace.map((step) => (
@@ -244,13 +304,13 @@ export function ChatWorkspace() {
             </section>
           )}
 
-          <section className="insight-card">
+          {isDemoMode && <section className="insight-card">
             <span className="insight-card__icon"><Sparkles size={16} /></span>
             <div>
               <strong>Optimization opportunity</strong>
               <p>Cache coverage is 63%. Raising it could reduce end-to-end p95 by another 11–16%.</p>
             </div>
-          </section>
+          </section>}
         </aside>
       </div>
     </div>

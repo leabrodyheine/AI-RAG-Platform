@@ -288,6 +288,21 @@ textarea:focus-visible {
   overflow-y: auto;
 }
 
+.conversation-empty {
+  display: flex;
+  min-height: 340px;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  text-align: center;
+}
+
+.conversation-empty svg { color: var(--accent); }
+.conversation-empty strong { color: #536077; font-size: 12px; }
+.conversation-empty span { max-width: 330px; font-size: 10px; line-height: 1.5; }
+
 .message { display: grid; grid-template-columns: 29px minmax(0, 1fr); gap: 11px; padding: 18px 0; }
 .message + .message { border-top: 1px solid var(--line-soft); }
 
@@ -398,6 +413,7 @@ textarea:focus-visible {
 }
 
 .suggestion-row button:hover { color: var(--accent); border-color: #c5d0f3; }
+.suggestion-row button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .composer {
   overflow: hidden;
@@ -441,6 +457,10 @@ textarea:focus-visible {
 .composer__footer button:disabled { color: #aab2c0; background: #e7eaf0; cursor: not-allowed; }
 
 .error-banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
   padding: 7px 9px;
   margin: 0 0 8px;
   color: var(--danger);
@@ -448,6 +468,21 @@ textarea:focus-visible {
   border: 1px solid #f0d0d3;
   border-radius: 6px;
   background: #fff5f5;
+}
+
+.error-banner span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.error-banner small { color: #8e5960; font-size: 8px; }
+
+.error-banner button {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  color: var(--danger);
+  font-size: 9px;
+  font-weight: 700;
+  border: 1px solid #e8bdc2;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
 }
 
 .evidence-panel { overflow: hidden; border-radius: 11px; }
