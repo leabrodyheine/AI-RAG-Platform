@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from retrieval_service.config import Settings
 from retrieval_service.database import DocumentStore
+from retrieval_service.routes.documents import router as documents_router
 from retrieval_service.routes.search import router as search_router
 
 
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Retrieval Service", version="0.1.0", lifespan=lifespan)
+app.include_router(documents_router)
 app.include_router(search_router)
 
 

@@ -1,6 +1,7 @@
 """Deterministic search that can later be replaced by hybrid vector retrieval."""
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from retrieval_service.corpus import EVALUATION_DOCUMENTS, EvaluationDocument
@@ -29,13 +30,17 @@ class RankedDocument:
     relevance: float
 
 
-def search_documents(query: str, top_k: int = 3) -> list[RankedDocument]:
+def search_documents(
+    query: str,
+    top_k: int = 3,
+    documents: Sequence[EvaluationDocument] = EVALUATION_DOCUMENTS,
+) -> list[RankedDocument]:
     query_terms = _tokenize(query)
     if not query_terms:
         return []
 
     ranked: list[RankedDocument] = []
-    for document in EVALUATION_DOCUMENTS:
+    for document in documents:
         title_terms = _tokenize(document.title)
         tag_terms = set(document.tags)
         content_terms = _tokenize(document.content)

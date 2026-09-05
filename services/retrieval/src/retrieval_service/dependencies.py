@@ -6,4 +6,4 @@ from retrieval_service.database import DocumentStore
 
 
 def get_document_store(request: Request) -> DocumentStore | None:
-    return cast(DocumentStore | None, request.app.state.document_store)
+    return cast(DocumentStore | None, getattr(request.app.state, "document_store", None))
