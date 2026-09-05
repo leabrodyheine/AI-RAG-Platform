@@ -8,6 +8,7 @@ from retrieval_service.embeddings import (
 )
 
 SUPPORTED_EMBEDDING_PROVIDERS = {"fastembed", "feature-hash"}
+DEFAULT_CACHE_TTL_SECONDS = 60
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -22,9 +23,19 @@ def normalize_database_url(database_url: str) -> str:
     return normalized_url
 
 
+def normalize_redis_url(redis_url: str) -> str:
+    normalized_url = redis_url.rstrip("/")
+    parsed_url = urlsplit(normalized_url)
+    if parsed_url.scheme not in {"redis", "rediss"} or not parsed_url.hostname:
+        raise ValueError("REDIS_URL must be an absolute Redis URL")
+    return normalized_url
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str | None
+    redis_url: str | None
+    cache_ttl_seconds: int
     embedding_provider: str
     embedding_model: str
     embedding_model_version: str
@@ -38,6 +49,19 @@ class Settings:
             if configured_url is not None and configured_url.strip()
             else None
         )
+        configured_redis_url = os.getenv("REDIS_URL")
+        redis_url = (
+            normalize_redis_url(configured_redis_url.strip())
+            if configured_redis_url is not None and configured_redis_url.strip()
+            else None
+        )
+        configured_ttl = os.getenv("RETRIEVAL_CACHE_TTL_SECONDS", str(DEFAULT_CACHE_TTL_SECONDS))
+        try:
+            cache_ttl_seconds = int(configured_ttl)
+        except ValueError as error:
+            raise ValueError("RETRIEVAL_CACHE_TTL_SECONDS must be an integer") from error
+        if not 1 <= cache_ttl_seconds <= 86_400:
+            raise ValueError("RETRIEVAL_CACHE_TTL_SECONDS must be between 1 and 86400")
         embedding_provider = os.getenv("EMBEDDING_PROVIDER", "fastembed").strip().casefold()
         if embedding_provider not in SUPPORTED_EMBEDDING_PROVIDERS:
             supported = ", ".join(sorted(SUPPORTED_EMBEDDING_PROVIDERS))
@@ -63,6 +87,8 @@ class Settings:
 
         return cls(
             database_url=database_url,
+            redis_url=redis_url,
+            cache_ttl_seconds=cache_ttl_seconds,
             embedding_provider=embedding_provider,
             embedding_model=embedding_model,
             embedding_model_version=embedding_model_version,

@@ -1,5 +1,5 @@
 import pytest
-from retrieval_service.config import Settings, normalize_database_url
+from retrieval_service.config import Settings, normalize_database_url, normalize_redis_url
 from retrieval_service.embeddings import DEFAULT_SEMANTIC_MODEL, DEFAULT_SEMANTIC_MODEL_VERSION
 
 
@@ -9,6 +9,8 @@ def test_settings_disable_persistence_when_database_url_is_missing(monkeypatch) 
     monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
     monkeypatch.delenv("EMBEDDING_MODEL_VERSION", raising=False)
     monkeypatch.delenv("EMBEDDING_CACHE_DIR", raising=False)
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("RETRIEVAL_CACHE_TTL_SECONDS", raising=False)
 
     settings = Settings.from_env()
 
@@ -17,6 +19,8 @@ def test_settings_disable_persistence_when_database_url_is_missing(monkeypatch) 
     assert settings.embedding_model == DEFAULT_SEMANTIC_MODEL
     assert settings.embedding_model_version == DEFAULT_SEMANTIC_MODEL_VERSION
     assert settings.embedding_cache_dir is None
+    assert settings.redis_url is None
+    assert settings.cache_ttl_seconds == 60
 
 
 def test_settings_disable_persistence_when_database_url_is_blank(monkeypatch) -> None:
@@ -48,6 +52,30 @@ def test_settings_normalize_sqlalchemy_asyncpg_urls(monkeypatch) -> None:
 def test_database_url_requires_postgres_host_and_database(database_url: str) -> None:
     with pytest.raises(ValueError, match="PostgreSQL host and database"):
         normalize_database_url(database_url)
+
+
+def test_settings_normalize_redis_url_and_cache_ttl(monkeypatch) -> None:
+    monkeypatch.setenv("REDIS_URL", " rediss://cache.example:6380/2/ ")
+    monkeypatch.setenv("RETRIEVAL_CACHE_TTL_SECONDS", "120")
+
+    settings = Settings.from_env()
+
+    assert settings.redis_url == "rediss://cache.example:6380/2"
+    assert settings.cache_ttl_seconds == 120
+
+
+@pytest.mark.parametrize("redis_url", ["http://cache:6379", "redis:///0", "cache:6379"])
+def test_redis_url_must_be_absolute(redis_url: str) -> None:
+    with pytest.raises(ValueError, match="absolute Redis URL"):
+        normalize_redis_url(redis_url)
+
+
+@pytest.mark.parametrize("ttl", ["zero", "0", "86401", "1.5"])
+def test_cache_ttl_must_be_a_bounded_integer(monkeypatch, ttl: str) -> None:
+    monkeypatch.setenv("RETRIEVAL_CACHE_TTL_SECONDS", ttl)
+
+    with pytest.raises(ValueError, match="RETRIEVAL_CACHE_TTL_SECONDS"):
+        Settings.from_env()
 
 
 def test_settings_accept_the_offline_embedding_provider(monkeypatch) -> None:
