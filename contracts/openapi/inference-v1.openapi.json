@@ -1,0 +1,192 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RAG Inference API",
+    "version": "1.0.0",
+    "description": "Internal API contract for generating an answer from a fully constructed prompt."
+  },
+  "servers": [
+    {
+      "url": "http://inference:8003",
+      "description": "Inference service on the internal service network"
+    }
+  ],
+  "paths": {
+    "/generate": {
+      "post": {
+        "operationId": "generateText",
+        "summary": "Generate text from a completed prompt",
+        "tags": ["inference"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationRequest"
+              },
+              "example": {
+                "prompt": "Answer the question using only the supplied evidence.",
+                "maxTokens": 512,
+                "temperature": 0.1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Text generation completed.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body failed validation.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            }
+          },
+          "503": {
+            "description": "The configured inference backend is unavailable.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The configured inference backend timed out.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "RequestId": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "description": "Optional caller-provided correlation ID. The service generates one when omitted.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Correlation ID assigned to the request.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "schemas": {
+      "GenerationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prompt", "maxTokens", "temperature"],
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "maxTokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2048
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          }
+        }
+      },
+      "GenerationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["content", "model", "usage"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "usage": {
+            "$ref": "#/components/schemas/TokenUsage"
+          }
+        }
+      },
+      "TokenUsage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["promptTokens", "completionTokens"],
+        "properties": {
+          "promptTokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completionTokens": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["detail"],
+        "properties": {
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

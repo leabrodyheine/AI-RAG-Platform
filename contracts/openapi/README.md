@@ -3,6 +3,7 @@
 Versioned API specifications:
 
 - `chat-v1.openapi.json` defines the public API gateway `POST /chat` contract.
+- `inference-v1.openapi.json` defines the internal inference `POST /generate` contract.
 - `retrieval-v1.openapi.json` defines the internal retrieval `POST /search` contract.
 
 The chat contract uses camelCase JSON fields to match browser conventions. A
