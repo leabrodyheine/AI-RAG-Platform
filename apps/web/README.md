@@ -10,9 +10,10 @@ npm install
 npm run dev
 ```
 
-The app uses representative demo data by default because the API gateway's chat
-endpoint is not implemented yet. Copy `.env.example` to `.env.local` and set
-`VITE_USE_DEMO_DATA=false` when the gateway can serve `POST /chat`.
+The app sends investigation questions to the API gateway at
+`http://localhost:8000` by default. Copy `.env.example` to `.env.local` to
+change the gateway URL. Set `VITE_USE_DEMO_DATA=true` when you want to explore
+the UI without running the backend services.
 
 ## Source layout
 
