@@ -3,9 +3,31 @@
 import hashlib
 import math
 import re
+from collections.abc import Sequence
+from typing import Protocol
 
 EMBEDDING_DIMENSIONS = 256
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+
+
+class EmbeddingProvider(Protocol):
+    dimensions: int
+    version: str
+
+    def embed_query(self, text: str) -> tuple[float, ...]: ...
+
+    def embed_passages(self, texts: Sequence[str]) -> list[tuple[float, ...]]: ...
+
+
+class FeatureHashEmbeddingProvider:
+    dimensions = EMBEDDING_DIMENSIONS
+    version = "feature-hash-v1"
+
+    def embed_query(self, text: str) -> tuple[float, ...]:
+        return embed_text(text)
+
+    def embed_passages(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
+        return [embed_text(text) for text in texts]
 
 
 def embed_text(text: str) -> tuple[float, ...]:

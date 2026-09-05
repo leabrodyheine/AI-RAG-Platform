@@ -1,7 +1,11 @@
 import math
 
 from retrieval_service.corpus import EVALUATION_DOCUMENTS
-from retrieval_service.embeddings import EMBEDDING_DIMENSIONS, embed_text
+from retrieval_service.embeddings import (
+    EMBEDDING_DIMENSIONS,
+    FeatureHashEmbeddingProvider,
+    embed_text,
+)
 
 
 def cosine_similarity(left: tuple[float, ...], right: tuple[float, ...]) -> float:
@@ -44,3 +48,15 @@ def test_unrelated_query_does_not_collide_with_evaluation_corpus() -> None:
     ]
 
     assert max(similarities) == 0
+
+
+def test_feature_hash_provider_embeds_queries_and_passages() -> None:
+    provider = FeatureHashEmbeddingProvider()
+
+    assert provider.version == "feature-hash-v1"
+    assert provider.dimensions == EMBEDDING_DIMENSIONS
+    assert provider.embed_query("retrieval latency") == embed_text("retrieval latency")
+    assert provider.embed_passages(["first", "second"]) == [
+        embed_text("first"),
+        embed_text("second"),
+    ]
