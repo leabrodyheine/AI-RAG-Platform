@@ -1,0 +1,71 @@
+from uuid import UUID
+
+import pytest
+from fastapi.testclient import TestClient
+from retrieval_service.main import app
+
+client = TestClient(app)
+
+
+def test_search_ranks_matching_evaluation_evidence() -> None:
+    response = client.post(
+        "/search",
+        json={"query": "What is driving p95 retrieval latency?", "topK": 2},
+        headers={"X-Request-ID": "retrieval-request-123"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "retrieval-request-123"
+    results = response.json()["results"]
+    assert len(results) == 2
+    assert results[0]["id"] == "retrieval-benchmark-1842"
+    assert set(results[0]) == {"id", "title", "source", "excerpt", "relevance"}
+    assert 0 < results[0]["relevance"] <= 1
+
+
+def test_search_obeys_top_k_and_uses_stable_ranking() -> None:
+    response = client.post(
+        "/search",
+        json={"query": "retrieval cache latency", "topK": 1},
+    )
+
+    assert response.status_code == 200
+    assert [result["id"] for result in response.json()["results"]] == [
+        "cache-comparison-1842"
+    ]
+    UUID(response.headers["X-Request-ID"])
+
+
+def test_search_returns_no_evidence_for_an_unmatched_query() -> None:
+    response = client.post("/search", json={"query": "weather forecast"})
+
+    assert response.status_code == 200
+    assert response.json() == {"results": []}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"query": ""},
+        {"query": "   \n"},
+        {"query": "valid", "topK": 0},
+        {"query": "valid", "topK": 11},
+        {"query": "valid", "unexpected": True},
+    ],
+)
+def test_search_rejects_invalid_requests(payload: dict[str, object]) -> None:
+    response = client.post("/search", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_search_accepts_the_query_length_limit() -> None:
+    response = client.post("/search", json={"query": "a" * 4000})
+
+    assert response.status_code == 200
+
+
+def test_search_rejects_queries_over_the_length_limit() -> None:
+    response = client.post("/search", json={"query": "a" * 4001})
+
+    assert response.status_code == 422
