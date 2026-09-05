@@ -29,10 +29,9 @@ async def search(
     request_id = caller_request_id or str(uuid4())
     response.headers["X-Request-ID"] = request_id
 
-    documents = await document_store.list_documents() if document_store is not None else None
     ranked_documents = (
-        search_documents(payload.query, payload.top_k, documents)
-        if documents is not None
+        await document_store.search(payload.query, payload.top_k)
+        if document_store is not None
         else search_documents(payload.query, payload.top_k)
     )
     results = [
