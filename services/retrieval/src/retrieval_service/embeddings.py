@@ -2,6 +2,7 @@
 
 import hashlib
 import math
+import os
 import re
 from collections.abc import Iterable, Sequence
 from typing import Any, Protocol
@@ -48,6 +49,7 @@ class FastEmbedProvider:
         *,
         model: Any | None = None,
     ) -> None:
+        os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
         if model is None:
             from fastembed import TextEmbedding
 

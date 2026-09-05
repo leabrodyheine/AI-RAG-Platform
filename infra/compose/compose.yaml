@@ -46,6 +46,7 @@ services:
       EMBEDDING_MODEL: BAAI/bge-small-en-v1.5
       EMBEDDING_MODEL_VERSION: fastembed:BAAI/bge-small-en-v1.5:v1
       EMBEDDING_CACHE_DIR: /home/appuser/.cache/fastembed
+      ORT_DISABLE_TELEMETRY: 1
     volumes:
       - embedding-cache:/home/appuser/.cache/fastembed
     depends_on:

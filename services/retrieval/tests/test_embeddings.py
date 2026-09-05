@@ -1,4 +1,5 @@
 import math
+import os
 
 import pytest
 from retrieval_service.corpus import EVALUATION_DOCUMENTS
@@ -87,6 +88,14 @@ def test_fastembed_provider_uses_query_and_passage_encoders() -> None:
         (1.0,) * SEMANTIC_EMBEDDING_DIMENSIONS,
         (2.0,) * SEMANTIC_EMBEDDING_DIMENSIONS,
     ]
+
+
+def test_fastembed_provider_disables_onnx_telemetry_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("ORT_DISABLE_TELEMETRY", raising=False)
+
+    FastEmbedProvider(model=FakeSemanticModel())
+
+    assert os.environ["ORT_DISABLE_TELEMETRY"] == "1"
 
 
 def test_fastembed_provider_does_not_call_model_for_an_empty_batch() -> None:
