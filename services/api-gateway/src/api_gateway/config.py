@@ -3,6 +3,44 @@ import os
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "http://localhost:3000",
+    "http://localhost:5173",
+)
+
+
+def cors_allowed_origins_from_env() -> tuple[str, ...]:
+    configured_origins = os.getenv("CORS_ALLOWED_ORIGINS")
+    if configured_origins is None:
+        return DEFAULT_CORS_ALLOWED_ORIGINS
+
+    origins = tuple(
+        dict.fromkeys(
+            origin.strip().removesuffix("/")
+            for origin in configured_origins.split(",")
+            if origin.strip()
+        )
+    )
+    if not origins:
+        raise ValueError("CORS_ALLOWED_ORIGINS must contain at least one origin")
+
+    for origin in origins:
+        parsed_origin = urlsplit(origin)
+        if (
+            parsed_origin.scheme not in {"http", "https"}
+            or not parsed_origin.netloc
+            or parsed_origin.path
+            or parsed_origin.query
+            or parsed_origin.fragment
+            or parsed_origin.username
+            or parsed_origin.password
+        ):
+            raise ValueError(
+                "CORS_ALLOWED_ORIGINS must contain only absolute HTTP or HTTPS origins"
+            )
+
+    return origins
+
 
 @dataclass(frozen=True)
 class Settings:
