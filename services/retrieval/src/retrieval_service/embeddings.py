@@ -13,6 +13,10 @@ DEFAULT_SEMANTIC_MODEL_VERSION = "fastembed:BAAI/bge-small-en-v1.5:v1"
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
+def default_semantic_model_version(model_name: str) -> str:
+    return f"fastembed:{model_name}:v1"
+
+
 class EmbeddingProvider(Protocol):
     dimensions: int
     version: str

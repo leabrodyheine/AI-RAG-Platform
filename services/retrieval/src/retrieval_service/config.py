@@ -4,7 +4,7 @@ from urllib.parse import urlsplit
 
 from retrieval_service.embeddings import (
     DEFAULT_SEMANTIC_MODEL,
-    DEFAULT_SEMANTIC_MODEL_VERSION,
+    default_semantic_model_version,
 )
 
 SUPPORTED_EMBEDDING_PROVIDERS = {"fastembed", "feature-hash"}
@@ -44,9 +44,12 @@ class Settings:
             raise ValueError(f"EMBEDDING_PROVIDER must be one of: {supported}")
 
         embedding_model = os.getenv("EMBEDDING_MODEL", DEFAULT_SEMANTIC_MODEL).strip()
-        embedding_model_version = os.getenv(
-            "EMBEDDING_MODEL_VERSION", DEFAULT_SEMANTIC_MODEL_VERSION
-        ).strip()
+        configured_model_version = os.getenv("EMBEDDING_MODEL_VERSION")
+        embedding_model_version = (
+            configured_model_version.strip()
+            if configured_model_version is not None
+            else default_semantic_model_version(embedding_model)
+        )
         if not embedding_model:
             raise ValueError("EMBEDDING_MODEL must not be empty")
         if not embedding_model_version:

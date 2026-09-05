@@ -68,6 +68,13 @@ def test_settings_accept_an_explicit_model_version(monkeypatch) -> None:
     assert settings.embedding_cache_dir == "/models/embeddings"
 
 
+def test_settings_derive_the_default_version_from_a_custom_model(monkeypatch) -> None:
+    monkeypatch.setenv("EMBEDDING_MODEL", "organization/model")
+    monkeypatch.delenv("EMBEDDING_MODEL_VERSION", raising=False)
+
+    assert Settings.from_env().embedding_model_version == "fastembed:organization/model:v1"
+
+
 @pytest.mark.parametrize(
     ("name", "value", "message"),
     [
