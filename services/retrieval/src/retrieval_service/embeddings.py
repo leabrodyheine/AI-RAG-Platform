@@ -40,13 +40,14 @@ class FastEmbedProvider:
         self,
         model_name: str = DEFAULT_SEMANTIC_MODEL,
         version: str = DEFAULT_SEMANTIC_MODEL_VERSION,
+        cache_dir: str | None = None,
         *,
         model: Any | None = None,
     ) -> None:
         if model is None:
             from fastembed import TextEmbedding
 
-            model = TextEmbedding(model_name=model_name)
+            model = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
         self._model = model
         self.model_name = model_name
         self.version = version
@@ -85,11 +86,16 @@ def create_embedding_provider(
     *,
     model_name: str = DEFAULT_SEMANTIC_MODEL,
     model_version: str = DEFAULT_SEMANTIC_MODEL_VERSION,
+    cache_dir: str | None = None,
 ) -> EmbeddingProvider:
     if provider_name == "feature-hash":
         return FeatureHashEmbeddingProvider()
     if provider_name == "fastembed":
-        return FastEmbedProvider(model_name=model_name, version=model_version)
+        return FastEmbedProvider(
+            model_name=model_name,
+            version=model_version,
+            cache_dir=cache_dir,
+        )
     raise ValueError(f"unsupported embedding provider: {provider_name}")
 
 

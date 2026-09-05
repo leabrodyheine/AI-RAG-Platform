@@ -24,6 +24,7 @@ def test_lifespan_connects_and_closes_configured_document_store(monkeypatch) -> 
             "fastembed",
             model_name="BAAI/bge-small-en-v1.5",
             model_version="fastembed:BAAI/bge-small-en-v1.5:v1",
+            cache_dir=None,
         )
         connect.assert_awaited_once_with(
             "postgresql://rag:secret@postgres/platform",

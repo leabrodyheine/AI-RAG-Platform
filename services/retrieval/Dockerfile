@@ -6,7 +6,9 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install --no-cache-dir .
 
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser \
+    && mkdir -p /home/appuser/.cache/fastembed \
+    && chown -R appuser:appuser /home/appuser/.cache
 USER appuser
 
 EXPOSE 8002

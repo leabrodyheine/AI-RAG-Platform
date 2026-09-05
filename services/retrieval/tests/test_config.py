@@ -8,6 +8,7 @@ def test_settings_disable_persistence_when_database_url_is_missing(monkeypatch) 
     monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)
     monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
     monkeypatch.delenv("EMBEDDING_MODEL_VERSION", raising=False)
+    monkeypatch.delenv("EMBEDDING_CACHE_DIR", raising=False)
 
     settings = Settings.from_env()
 
@@ -15,6 +16,7 @@ def test_settings_disable_persistence_when_database_url_is_missing(monkeypatch) 
     assert settings.embedding_provider == "fastembed"
     assert settings.embedding_model == DEFAULT_SEMANTIC_MODEL
     assert settings.embedding_model_version == DEFAULT_SEMANTIC_MODEL_VERSION
+    assert settings.embedding_cache_dir is None
 
 
 def test_settings_disable_persistence_when_database_url_is_blank(monkeypatch) -> None:
@@ -57,11 +59,13 @@ def test_settings_accept_the_offline_embedding_provider(monkeypatch) -> None:
 def test_settings_accept_an_explicit_model_version(monkeypatch) -> None:
     monkeypatch.setenv("EMBEDDING_MODEL", "organization/model")
     monkeypatch.setenv("EMBEDDING_MODEL_VERSION", "organization/model@revision-2")
+    monkeypatch.setenv("EMBEDDING_CACHE_DIR", " /models/embeddings ")
 
     settings = Settings.from_env()
 
     assert settings.embedding_model == "organization/model"
     assert settings.embedding_model_version == "organization/model@revision-2"
+    assert settings.embedding_cache_dir == "/models/embeddings"
 
 
 @pytest.mark.parametrize(

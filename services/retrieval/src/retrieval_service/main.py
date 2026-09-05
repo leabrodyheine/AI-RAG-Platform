@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.embedding_provider,
             model_name=settings.embedding_model,
             model_version=settings.embedding_model_version,
+            cache_dir=settings.embedding_cache_dir,
         )
         document_store = await DocumentStore.connect(
             settings.database_url,

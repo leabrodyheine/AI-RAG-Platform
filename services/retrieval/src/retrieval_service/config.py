@@ -28,6 +28,7 @@ class Settings:
     embedding_provider: str
     embedding_model: str
     embedding_model_version: str
+    embedding_cache_dir: str | None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -50,10 +51,17 @@ class Settings:
             raise ValueError("EMBEDDING_MODEL must not be empty")
         if not embedding_model_version:
             raise ValueError("EMBEDDING_MODEL_VERSION must not be empty")
+        configured_cache_dir = os.getenv("EMBEDDING_CACHE_DIR")
+        embedding_cache_dir = (
+            configured_cache_dir.strip()
+            if configured_cache_dir is not None and configured_cache_dir.strip()
+            else None
+        )
 
         return cls(
             database_url=database_url,
             embedding_provider=embedding_provider,
             embedding_model=embedding_model,
             embedding_model_version=embedding_model_version,
+            embedding_cache_dir=embedding_cache_dir,
         )
