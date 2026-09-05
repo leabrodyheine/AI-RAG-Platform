@@ -7,8 +7,12 @@ from retrieval_service.database import (
     ADD_EMBEDDING_MODEL_COLUMN_SQL,
     CREATE_CHUNKS_INDEX_SQL,
     CREATE_DOCUMENTS_TABLE_SQL,
+    CREATE_RETRIEVAL_STATE_SQL,
     CREATE_VECTOR_EXTENSION_SQL,
     DELETE_DOCUMENT_CHUNKS_SQL,
+    INCREMENT_CORPUS_GENERATION_SQL,
+    INITIALIZE_CORPUS_GENERATION_SQL,
+    READ_CORPUS_GENERATION_SQL,
     VECTOR_SEARCH_SQL,
     DocumentStore,
     create_chunks_table_sql,
@@ -56,10 +60,12 @@ async def test_initialize_creates_and_seeds_an_empty_document_table() -> None:
 
     await store.initialize()
 
-    schema_statements = [call.args[0] for call in connection.execute.await_args_list[:6]]
+    schema_statements = [call.args[0] for call in connection.execute.await_args_list[:8]]
     assert schema_statements == [
         CREATE_VECTOR_EXTENSION_SQL,
         CREATE_DOCUMENTS_TABLE_SQL,
+        CREATE_RETRIEVAL_STATE_SQL,
+        INITIALIZE_CORPUS_GENERATION_SQL,
         reset_chunks_for_dimension_sql(FeatureHashEmbeddingProvider.dimensions),
         create_chunks_table_sql(FeatureHashEmbeddingProvider.dimensions),
         ADD_EMBEDDING_MODEL_COLUMN_SQL,
@@ -140,6 +146,7 @@ async def test_upsert_documents_returns_the_written_count() -> None:
     )
     assert len(indexed_chunks[0][3].strip("[]").split(",")) == 256
     assert indexed_chunks[0][4] == "feature-hash-v1"
+    connection.fetchval.assert_awaited_once_with(INCREMENT_CORPUS_GENERATION_SQL)
 
 
 @pytest.mark.anyio
@@ -161,6 +168,15 @@ async def test_list_documents_maps_database_rows() -> None:
 
     assert documents[0].id == "result-3"
     assert documents[0].tags == ("quality", "recall")
+
+
+@pytest.mark.anyio
+async def test_corpus_generation_is_read_from_postgres() -> None:
+    connection = FakeConnection(count=7)
+    store = DocumentStore(FakePool(connection))
+
+    assert await store.corpus_generation() == 7
+    connection.fetchval.assert_awaited_once_with(READ_CORPUS_GENERATION_SQL)
 
 
 @pytest.mark.anyio

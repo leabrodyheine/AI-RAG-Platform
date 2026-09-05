@@ -25,3 +25,11 @@ def test_semantic_migration_versions_384_dimension_embeddings() -> None:
         f"embedding vector({SEMANTIC_EMBEDDING_DIMENSIONS}) NOT NULL"
         in create_chunks_table_sql(SEMANTIC_EMBEDDING_DIMENSIONS)
     )
+
+
+def test_cache_generation_migration_creates_authoritative_state() -> None:
+    migration = (MIGRATIONS / "0004_add_corpus_generation.sql").read_text()
+
+    assert "CREATE TABLE IF NOT EXISTS retrieval_state" in migration
+    assert "'corpus_generation', 1" in migration
+    assert "ON CONFLICT (key) DO NOTHING" in migration

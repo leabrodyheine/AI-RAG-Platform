@@ -28,6 +28,30 @@ CREATE TABLE IF NOT EXISTS retrieval_documents (
 )
 """
 
+CREATE_RETRIEVAL_STATE_SQL = """
+CREATE TABLE IF NOT EXISTS retrieval_state (
+    key TEXT PRIMARY KEY,
+    value BIGINT NOT NULL CHECK (value >= 1)
+)
+"""
+
+INITIALIZE_CORPUS_GENERATION_SQL = """
+INSERT INTO retrieval_state (key, value)
+VALUES ('corpus_generation', 1)
+ON CONFLICT (key) DO NOTHING
+"""
+
+READ_CORPUS_GENERATION_SQL = """
+SELECT value FROM retrieval_state WHERE key = 'corpus_generation'
+"""
+
+INCREMENT_CORPUS_GENERATION_SQL = """
+UPDATE retrieval_state
+SET value = value + 1
+WHERE key = 'corpus_generation'
+RETURNING value
+"""
+
 def create_chunks_table_sql(dimensions: int) -> str:
     return f"""
 CREATE TABLE IF NOT EXISTS retrieval_chunks (
@@ -155,6 +179,10 @@ class DocumentStore:
         if not 1 <= self._embedding_provider.dimensions <= 2_000:
             raise ValueError("embedding dimensions must be between 1 and 2000")
 
+    @property
+    def embedding_version(self) -> str:
+        return self._embedding_provider.version
+
     @classmethod
     async def connect(
         cls,
@@ -175,6 +203,8 @@ class DocumentStore:
             async with connection.transaction():
                 await connection.execute(CREATE_VECTOR_EXTENSION_SQL)
                 await connection.execute(CREATE_DOCUMENTS_TABLE_SQL)
+                await connection.execute(CREATE_RETRIEVAL_STATE_SQL)
+                await connection.execute(INITIALIZE_CORPUS_GENERATION_SQL)
                 await connection.execute(
                     reset_chunks_for_dimension_sql(self._embedding_provider.dimensions)
                 )
@@ -209,7 +239,13 @@ class DocumentStore:
         async with self._pool.acquire() as connection:
             async with connection.transaction():
                 await _upsert_and_index(connection, documents, self._embedding_provider)
+                await connection.fetchval(INCREMENT_CORPUS_GENERATION_SQL)
         return len(documents)
+
+    async def corpus_generation(self) -> int:
+        async with self._pool.acquire() as connection:
+            generation = await connection.fetchval(READ_CORPUS_GENERATION_SQL)
+        return int(generation)
 
     async def list_documents(self) -> tuple[EvaluationDocument, ...]:
         async with self._pool.acquire() as connection:
