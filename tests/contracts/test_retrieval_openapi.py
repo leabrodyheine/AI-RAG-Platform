@@ -66,3 +66,15 @@ def test_retrieval_contract_documents_request_id_propagation() -> None:
 
     assert operation["parameters"] == [{"$ref": "#/components/parameters/RequestId"}]
     assert "X-Request-ID" in operation["responses"]["200"]["headers"]
+
+
+def test_retrieval_contract_documents_cache_status() -> None:
+    contract = load_contract()
+    headers = contract["paths"]["/search"]["post"]["responses"]["200"]["headers"]
+
+    assert headers["X-Cache"] == {"$ref": "#/components/headers/CacheStatus"}
+    assert contract["components"]["headers"]["CacheStatus"]["schema"]["enum"] == [
+        "HIT",
+        "MISS",
+        "BYPASS",
+    ]

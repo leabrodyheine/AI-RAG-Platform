@@ -83,6 +83,9 @@
             "headers": {
               "X-Request-ID": {
                 "$ref": "#/components/headers/RequestId"
+              },
+              "X-Cache": {
+                "$ref": "#/components/headers/CacheStatus"
               }
             },
             "content": {
@@ -114,6 +117,14 @@
       }
     },
     "headers": {
+      "CacheStatus": {
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": ["HIT", "MISS", "BYPASS"]
+        },
+        "description": "Whether the response came from Redis, populated Redis, or bypassed caching."
+      },
       "RequestId": {
         "required": true,
         "schema": {
