@@ -34,6 +34,8 @@ data/
 models/
 evaluation/datasets/*
 !evaluation/datasets/README.md
+# Small, redistributable evaluation datasets are tracked by exact name.
+!evaluation/datasets/quality-core-v1.json
 evaluation/reports/*
 !evaluation/reports/README.md
 load-tests/results/*

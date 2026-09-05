@@ -1,0 +1,132 @@
+{
+  "schema": "quality-eval-record/v1",
+  "version": "core-v1",
+  "embedding_version": "in-memory-keyword-v1",
+  "notes": "Authored against the retrieval service's in-memory keyword search over the four EVALUATION_DOCUMENTS and the deterministic inference backend. Every case is reproducible offline. Covers the four workflow families: direct answers, single-pass retrieval, one bounded rewrite, and genuine insufficient-evidence questions.",
+  "cases": [
+    {
+      "id": "direct-capabilities",
+      "question": "What can you do?",
+      "kind": "direct",
+      "reference_answer": "It explains that it answers questions about the platform's AI evaluation results and cites supporting evidence.",
+      "answer_must_include": ["answer questions about this platform's AI evaluation results"],
+      "notes": "Recognised assistant-capability question; must skip retrieval and cite nothing."
+    },
+    {
+      "id": "direct-identity",
+      "question": "Who are you?",
+      "kind": "direct",
+      "reference_answer": "It identifies itself as the assistant that answers questions about the platform's AI evaluation results.",
+      "answer_must_include": ["evaluation results"],
+      "notes": "Assistant-identity question; direct answer."
+    },
+    {
+      "id": "direct-greeting",
+      "question": "Hello there",
+      "kind": "direct",
+      "reference_answer": "It responds with the standing description of what it can help with.",
+      "answer_must_include": ["Ask about a specific run or metric"],
+      "notes": "Greeting; direct answer, no retrieval."
+    },
+    {
+      "id": "retrieval-cache-miss-latency",
+      "question": "How much did cache misses raise vector-search p95 latency at 32 concurrent users?",
+      "kind": "retrieval",
+      "reference_answer": "Cache misses increased vector-search p95 latency from 112 ms to 391 ms at 32 concurrent users.",
+      "expected_evidence": ["retrieval-benchmark-1842"],
+      "answer_must_include": ["112 ms", "391 ms"],
+      "notes": "Single strong hit; answer is the first sentence of the benchmark note."
+    },
+    {
+      "id": "retrieval-concurrency-threshold",
+      "question": "How many concurrent users triggered the cache-miss latency spike?",
+      "kind": "retrieval",
+      "reference_answer": "The spike was measured at 32 concurrent users.",
+      "expected_evidence": ["retrieval-benchmark-1842"],
+      "answer_must_include": ["32 concurrent users"]
+    },
+    {
+      "id": "retrieval-vllm-throughput",
+      "question": "What throughput did vLLM reach in the run #1839 backend comparison?",
+      "kind": "retrieval",
+      "reference_answer": "vLLM delivered 41 tokens per second.",
+      "expected_evidence": ["inference-comparison-1839"],
+      "answer_must_include": ["41 tokens per second"]
+    },
+    {
+      "id": "retrieval-quality-metrics",
+      "question": "What did the run #1840 answer quality evaluation measure?",
+      "kind": "retrieval",
+      "reference_answer": "It measured 91% answer correctness, 88% retrieval recall, 94% citation accuracy, and a 3% hallucination rate across 200 questions.",
+      "expected_evidence": ["answer-quality-1840"],
+      "answer_must_include": ["91% answer correctness", "3% hallucination rate"]
+    },
+    {
+      "id": "retrieval-hallucination-rate",
+      "question": "What was the hallucination rate across the 200 evaluation questions?",
+      "kind": "retrieval",
+      "reference_answer": "The hallucination rate was 3% across 200 questions.",
+      "expected_evidence": ["answer-quality-1840"],
+      "answer_must_include": ["3% hallucination rate"]
+    },
+    {
+      "id": "retrieval-cache-improvement",
+      "question": "What did cached retrieval do to p95 latency compared with the uncached path?",
+      "kind": "retrieval",
+      "reference_answer": "Cached retrieval reduced p95 latency from 391 ms to 118 ms, a 69.8% improvement.",
+      "expected_evidence": ["cache-comparison-1842"],
+      "answer_must_include": ["391 ms", "118 ms"]
+    },
+    {
+      "id": "retrieval-cache-speedup",
+      "question": "How much faster was cached retrieval than uncached retrieval?",
+      "kind": "retrieval",
+      "reference_answer": "Cached retrieval was about 69.8% faster at p95.",
+      "expected_evidence": ["cache-comparison-1842"],
+      "answer_must_include": ["69.8%"]
+    },
+    {
+      "id": "rewrite-cache-regression",
+      "question": "Why did the cache p95 regress so badly under load?",
+      "kind": "rewrite",
+      "reference_answer": "Under load, cache misses drove vector-search p95 latency from 112 ms to 391 ms at 32 concurrent users.",
+      "expected_evidence": ["retrieval-benchmark-1842"],
+      "answer_must_include": ["112 ms", "391 ms"],
+      "notes": "First pass is weak (top relevance below threshold); the one bounded keyword rewrite drops the interrogatives and recovers the benchmark note."
+    },
+    {
+      "id": "rewrite-quality-overall",
+      "question": "Roughly speaking, how well did the answer quality evaluation actually score overall?",
+      "kind": "rewrite",
+      "reference_answer": "The evaluation set measured 91% answer correctness, 88% retrieval recall, 94% citation accuracy, and a 3% hallucination rate across 200 questions.",
+      "expected_evidence": ["answer-quality-1840"],
+      "answer_must_include": ["91% answer correctness"],
+      "notes": "Conversational filler makes the first retrieval weak; the rewrite recovers the quality summary."
+    },
+    {
+      "id": "insufficient-capital",
+      "question": "What is the capital of France?",
+      "kind": "insufficient",
+      "reference_answer": "The evaluation corpus has no evidence on this, so the answer should state that plainly and cite nothing.",
+      "answer_must_include": ["does not support an answer to this question"],
+      "answer_must_not_include": ["Paris"],
+      "notes": "No corpus document is relevant even after the rewrite."
+    },
+    {
+      "id": "insufficient-fusion",
+      "question": "Summarize recent developments in fusion energy research.",
+      "kind": "insufficient",
+      "reference_answer": "Out of scope for the evaluation corpus; the answer should say the evidence does not support one.",
+      "answer_must_include": ["does not support an answer"],
+      "answer_must_not_include": ["tokamak", "plasma"]
+    },
+    {
+      "id": "insufficient-gpu-power",
+      "question": "What was the GPU power draw during the load test?",
+      "kind": "insufficient",
+      "reference_answer": "The corpus records tokens per second and latency but no power figures, so the answer should decline.",
+      "answer_must_include": ["does not support an answer"],
+      "answer_must_not_include": ["watt", "W "]
+    }
+  ]
+}
