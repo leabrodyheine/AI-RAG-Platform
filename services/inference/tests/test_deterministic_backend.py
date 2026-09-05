@@ -72,6 +72,15 @@ def settings(**overrides: object) -> Settings:
     return Settings(**base)  # type: ignore[arg-type]
 
 
+@pytest.mark.anyio
+async def test_backend_is_named_always_ready_and_closes_cleanly() -> None:
+    backend = DeterministicBackend(model="deterministic-grounded-v1")
+
+    assert backend.name == "deterministic"
+    assert await backend.ready() is True
+    assert await backend.aclose() is None
+
+
 def test_create_backend_builds_the_deterministic_backend() -> None:
     backend = create_backend(settings(backend="deterministic"))
 

@@ -21,6 +21,8 @@ _INSUFFICIENT_EVIDENCE = (
 class DeterministicBackend:
     """Compose a grounded answer from the evidence lines in the prompt."""
 
+    name = "deterministic"
+
     def __init__(self, model: str) -> None:
         self.model = model
 
@@ -38,6 +40,12 @@ class DeterministicBackend:
             prompt_tokens=_count_tokens(prompt),
             completion_tokens=_count_tokens(answer),
         )
+
+    async def ready(self) -> bool:
+        return True
+
+    async def aclose(self) -> None:
+        return None
 
 
 def _compose_answer(prompt: str) -> str:

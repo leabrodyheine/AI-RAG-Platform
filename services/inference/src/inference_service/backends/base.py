@@ -14,6 +14,7 @@ class GenerationResult:
 class InferenceBackend(Protocol):
     """Interface implemented by each inference backend adapter."""
 
+    name: str
     model: str
 
     async def generate(
@@ -24,6 +25,19 @@ class InferenceBackend(Protocol):
         temperature: float,
     ) -> GenerationResult:
         """Generate text for a fully constructed prompt."""
+        ...
+
+    async def ready(self) -> bool:
+        """Report whether the backend can serve a generation request now.
+
+        This is model readiness, not process liveness: a remote backend returns
+        ``False`` while its model server is still loading weights. It never
+        raises.
+        """
+        ...
+
+    async def aclose(self) -> None:
+        """Release any resources the backend holds."""
         ...
 
 
