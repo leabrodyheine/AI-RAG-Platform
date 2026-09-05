@@ -2,8 +2,9 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from retrieval_service.cache import CacheLookup
 from retrieval_service.corpus import EvaluationDocument
-from retrieval_service.dependencies import get_document_store
+from retrieval_service.dependencies import get_document_store, get_retrieval_cache
 from retrieval_service.main import app
 from retrieval_service.search import RankedDocument
 
@@ -19,6 +20,7 @@ def test_search_ranks_matching_evaluation_evidence() -> None:
 
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == "retrieval-request-123"
+    assert response.headers["X-Cache"] == "BYPASS"
     results = response.json()["results"]
     assert len(results) == 2
     assert results[0]["id"] == "retrieval-benchmark-1842"
@@ -129,3 +131,107 @@ def test_persistent_search_does_not_fall_back_when_vectors_have_no_match() -> No
 
     assert response.status_code == 200
     assert response.json() == {"results": []}
+
+
+class CacheableStore:
+    embedding_version = "semantic-model-v1"
+
+    def __init__(self, results=None) -> None:
+        self.results = results or []
+        self.search_requests = []
+
+    async def corpus_generation(self) -> int:
+        return 7
+
+    async def search(self, query: str, top_k: int):
+        self.search_requests.append((query, top_k))
+        return self.results
+
+
+class RecordingCache:
+    def __init__(self, lookup: CacheLookup) -> None:
+        self.lookup_result = lookup
+        self.lookup_request = None
+        self.store_request = None
+
+    async def lookup(self, *args):
+        self.lookup_request = args
+        return self.lookup_result
+
+    async def store(self, *args) -> None:
+        self.store_request = args
+
+
+def test_search_returns_a_cache_hit_without_vector_search() -> None:
+    cached_result = RankedDocument(
+        document=EvaluationDocument(
+            id="cached-result",
+            title="Cached result",
+            source="evaluation/cached.json",
+            content="Cached matching excerpt.",
+            tags=(),
+        ),
+        relevance=0.82,
+    )
+    store = CacheableStore()
+    cache = RecordingCache(CacheLookup(status="HIT", results=[cached_result]))
+    app.dependency_overrides[get_document_store] = lambda: store
+    app.dependency_overrides[get_retrieval_cache] = lambda: cache
+    try:
+        response = client.post("/search", json={"query": "request delay", "topK": 2})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["X-Cache"] == "HIT"
+    assert response.json()["results"][0]["id"] == "cached-result"
+    assert store.search_requests == []
+    assert cache.lookup_request == ("request delay", 2, "semantic-model-v1", 7)
+
+
+def test_search_populates_a_cache_miss() -> None:
+    database_result = RankedDocument(
+        document=EvaluationDocument(
+            id="database-result",
+            title="Database result",
+            source="evaluation/database.json",
+            content="Database matching excerpt.",
+            tags=(),
+        ),
+        relevance=0.79,
+    )
+    store = CacheableStore([database_result])
+    cache = RecordingCache(CacheLookup(status="MISS"))
+    app.dependency_overrides[get_document_store] = lambda: store
+    app.dependency_overrides[get_retrieval_cache] = lambda: cache
+    try:
+        response = client.post("/search", json={"query": "request delay"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["X-Cache"] == "MISS"
+    assert store.search_requests == [("request delay", 3)]
+    assert cache.store_request == (
+        "request delay",
+        3,
+        "semantic-model-v1",
+        7,
+        [database_result],
+    )
+
+
+def test_search_does_not_write_after_a_cache_bypass() -> None:
+    store = CacheableStore()
+    cache = RecordingCache(CacheLookup(status="BYPASS"))
+    app.dependency_overrides[get_document_store] = lambda: store
+    app.dependency_overrides[get_retrieval_cache] = lambda: cache
+    try:
+        response = client.post("/search", json={"query": "request delay"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["X-Cache"] == "BYPASS"
+    assert store.search_requests == [("request delay", 3)]
+    assert cache.store_request is None
