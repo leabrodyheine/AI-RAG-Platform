@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -8,14 +9,27 @@ from fastapi.responses import JSONResponse
 from retrieval_service.config import Settings
 from retrieval_service.database import DocumentStore
 from retrieval_service.dependencies import get_document_store
+from retrieval_service.embeddings import create_embedding_provider
 from retrieval_service.routes.documents import router as documents_router
 from retrieval_service.routes.search import router as search_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    database_url = Settings.from_env().database_url
-    document_store = await DocumentStore.connect(database_url) if database_url else None
+    settings = Settings.from_env()
+    if settings.database_url:
+        embedding_provider = await asyncio.to_thread(
+            create_embedding_provider,
+            settings.embedding_provider,
+            model_name=settings.embedding_model,
+            model_version=settings.embedding_model_version,
+        )
+        document_store = await DocumentStore.connect(
+            settings.database_url,
+            embedding_provider,
+        )
+    else:
+        document_store = None
     app.state.document_store = document_store
     try:
         yield
