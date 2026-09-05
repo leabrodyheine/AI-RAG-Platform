@@ -1,6 +1,8 @@
-"""Deterministic workflow used until retrieval and inference are connected."""
+"""Evidence-grounded workflow used until model inference is connected."""
 
 from dataclasses import dataclass
+
+from agent_service.schemas import Citation
 
 
 @dataclass(frozen=True)
@@ -9,33 +11,37 @@ class DevelopmentAnswer:
     trace_detail: str
 
 
-def build_development_answer(question: str) -> DevelopmentAnswer:
+def build_development_answer(
+    question: str,
+    citations: list[Citation] | None = None,
+) -> DevelopmentAnswer:
+    evidence = citations or []
     normalized_question = question.casefold()
 
     if any(keyword in normalized_question for keyword in ("latency", "slow", "performance")):
-        return DevelopmentAnswer(
-            content=(
-                "The development agent classified this as a performance investigation. "
-                "Retrieval and inference telemetry will be used to answer it once those "
-                "services are connected."
-            ),
-            trace_detail="Performance question routed to the development workflow",
-        )
+        category = "performance"
+    elif any(keyword in normalized_question for keyword in ("retrieval", "cache", "citation")):
+        category = "retrieval"
+    else:
+        category = "general"
 
-    if any(keyword in normalized_question for keyword in ("retrieval", "cache", "citation")):
+    if evidence:
+        strongest_evidence = evidence[0]
         return DevelopmentAnswer(
             content=(
-                "The development agent classified this as a retrieval investigation. "
-                "Document search is not connected yet, so no evidence or citations are "
-                "returned in this vertical slice."
+                f"The strongest evidence for this {category} investigation comes from "
+                f"{strongest_evidence.title}: {strongest_evidence.excerpt}"
             ),
-            trace_detail="Retrieval question routed to the development workflow",
+            trace_detail=(
+                f"{category.capitalize()} answer grounded in {len(evidence)} retrieved "
+                f"source{'s' if len(evidence) != 1 else ''}"
+            ),
         )
 
     return DevelopmentAnswer(
         content=(
-            "The development agent received the question successfully. Retrieval and model "
-            "inference will replace this deterministic response in later vertical slices."
+            f"No matching evaluation evidence was found for this {category} investigation. "
+            "Try asking about retrieval latency, caching, inference performance, or answer quality."
         ),
-        trace_detail="General question routed to the development workflow",
+        trace_detail=f"{category.capitalize()} question completed without matching evidence",
     )
