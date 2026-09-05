@@ -7,6 +7,7 @@ from agent_service.clients.inference import InferenceClient
 from agent_service.clients.retrieval import RetrievalClient
 from agent_service.config import Settings
 from agent_service.routes.chat import router as chat_router
+from agent_service.workflow import WorkflowConfig
 
 
 @asynccontextmanager
@@ -16,6 +17,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     inference_client = InferenceClient.from_settings(settings)
     app.state.retrieval_client = retrieval_client
     app.state.inference_client = inference_client
+    app.state.workflow_config = WorkflowConfig(
+        min_relevance=settings.workflow_min_relevance,
+        min_results=settings.workflow_min_results,
+        max_steps=settings.workflow_max_steps,
+    )
     try:
         yield
     finally:

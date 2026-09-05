@@ -8,6 +8,9 @@ def test_settings_use_service_network_defaults(monkeypatch: pytest.MonkeyPatch) 
         "RETRIEVAL_REQUEST_TIMEOUT_SECONDS",
         "INFERENCE_SERVICE_URL",
         "INFERENCE_REQUEST_TIMEOUT_SECONDS",
+        "AGENT_WORKFLOW_MIN_RELEVANCE",
+        "AGENT_WORKFLOW_MIN_RESULTS",
+        "AGENT_WORKFLOW_MAX_STEPS",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -17,6 +20,43 @@ def test_settings_use_service_network_defaults(monkeypatch: pytest.MonkeyPatch) 
     assert settings.retrieval_request_timeout_seconds == 5
     assert settings.inference_service_url == "http://inference:8003"
     assert settings.inference_request_timeout_seconds == 15
+    assert settings.workflow_min_relevance == 0.3
+    assert settings.workflow_min_results == 1
+    assert settings.workflow_max_steps == 4
+
+
+def test_settings_read_workflow_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_WORKFLOW_MIN_RELEVANCE", "0.55")
+    monkeypatch.setenv("AGENT_WORKFLOW_MIN_RESULTS", "2")
+    monkeypatch.setenv("AGENT_WORKFLOW_MAX_STEPS", "6")
+
+    settings = Settings.from_env()
+
+    assert settings.workflow_min_relevance == 0.55
+    assert settings.workflow_min_results == 2
+    assert settings.workflow_max_steps == 6
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("AGENT_WORKFLOW_MIN_RELEVANCE", "1.5"),
+        ("AGENT_WORKFLOW_MIN_RELEVANCE", "-0.1"),
+        ("AGENT_WORKFLOW_MIN_RELEVANCE", "abc"),
+        ("AGENT_WORKFLOW_MIN_RESULTS", "0"),
+        ("AGENT_WORKFLOW_MIN_RESULTS", "two"),
+        ("AGENT_WORKFLOW_MAX_STEPS", "0"),
+    ],
+)
+def test_settings_reject_invalid_workflow_values(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+) -> None:
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValueError, match=name):
+        Settings.from_env()
 
 
 def test_settings_read_service_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
