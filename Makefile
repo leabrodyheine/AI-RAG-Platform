@@ -2,7 +2,7 @@ PYTHON ?= python3
 WEB_DIR := apps/web
 PYTHON_SERVICES := services/api-gateway services/agent services/retrieval services/inference
 
-.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality clean
+.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality eval-quality-check clean
 
 help:
 	@echo "Targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  lint          Run Python and TypeScript static checks"
 	@echo "  run-web       Start the web development server"
 	@echo "  eval-quality  Run the offline quality evaluation and write its reports"
+	@echo "  eval-quality-check  Run the quality evaluation and fail on a threshold regression"
 	@echo "  clean         Remove local build and test artifacts"
 
 install: install-python install-web
@@ -42,6 +43,9 @@ run-web:
 
 eval-quality:
 	$(PYTHON) -m evaluation.quality.run
+
+eval-quality-check:
+	$(PYTHON) -m evaluation.quality.run --check-thresholds
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name dist \) -prune -exec rm -rf {} +

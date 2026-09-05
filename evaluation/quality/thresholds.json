@@ -1,0 +1,14 @@
+{
+  "notes": "CI quality gate for the deterministic offline stack. 'min' values are floors, 'max' values are ceilings. Set just beneath the measured baseline of evaluation/datasets/quality-core-v1.json so a real regression fails CI without tripping on noise. Re-measure and adjust when the dataset or the deterministic stack changes.",
+  "min": {
+    "retrieval_recall": 1.0,
+    "retrieval_mrr": 0.9,
+    "retrieval_precision_at_1": 0.9,
+    "citation_presence": 1.0,
+    "citation_accuracy": 0.85,
+    "answer_correctness": 1.0
+  },
+  "max": {
+    "hallucination_rate": 0.0
+  }
+}

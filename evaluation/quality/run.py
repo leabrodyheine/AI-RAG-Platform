@@ -17,6 +17,16 @@ from evaluation.quality.harness import DEFAULT_TOP_K, run_evaluation
 from evaluation.quality.judge import create_judge
 from evaluation.quality.report import build_report, render_markdown
 from evaluation.quality.schema import DatasetError, load_dataset
+from evaluation.quality.thresholds import (
+    DEFAULT_THRESHOLDS_PATH,
+    ThresholdError,
+    check_thresholds,
+    load_thresholds,
+)
+
+EXIT_OK = 0
+EXIT_REGRESSED = 1
+EXIT_USAGE = 2
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATASET = _REPO_ROOT / "evaluation" / "datasets" / "quality-core-v1.json"
@@ -35,6 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument("--judge", default="keyword", help="answer-correctness judge")
     parser.add_argument(
+        "--check-thresholds",
+        action="store_true",
+        help="fail (exit 1) when a metric breaches evaluation/quality/thresholds.json",
+    )
+    parser.add_argument("--thresholds", type=Path, default=DEFAULT_THRESHOLDS_PATH)
+    parser.add_argument(
         "--quiet", action="store_true", help="only print the output file paths"
     )
     return parser
@@ -50,20 +66,33 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.top_k < 1:
         print("error: --top-k must be at least 1", file=sys.stderr)
-        return 2
+        return EXIT_USAGE
     try:
         dataset = load_dataset(args.dataset)
     except DatasetError as error:
         print(f"error: {error}", file=sys.stderr)
-        return 2
+        return EXIT_USAGE
     try:
         judge = create_judge(args.judge)
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
-        return 2
+        return EXIT_USAGE
+    thresholds = None
+    if args.check_thresholds:
+        try:
+            thresholds = load_thresholds(args.thresholds)
+        except ThresholdError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return EXIT_USAGE
 
     run = run_evaluation(dataset, judge=judge, top_k=args.top_k)
-    report = build_report(run)
+
+    regressions = check_thresholds(run.metrics.as_dict(), thresholds) if thresholds else []
+    report = build_report(
+        run,
+        thresholds=thresholds.as_dict() if thresholds else None,
+        regressions=[item.as_dict() for item in regressions],
+    )
 
     _write(args.json_out, json.dumps(report, indent=2, sort_keys=True))
     markdown = render_markdown(report)
@@ -76,7 +105,16 @@ def main(argv: list[str] | None = None) -> int:
         print(markdown)
         print(f"\nwrote {args.json_out}")
         print(f"wrote {args.markdown_out}")
-    return 0
+
+    if regressions:
+        summary = ", ".join(
+            f"{item.metric} {item.value:.3f} "
+            f"{'>' if item.direction == 'ceiling' else '<'} {item.threshold:.3f}"
+            for item in regressions
+        )
+        print(f"\nquality gate FAILED: {summary}", file=sys.stderr)
+        return EXIT_REGRESSED
+    return EXIT_OK
 
 
 if __name__ == "__main__":  # pragma: no cover - module entry point

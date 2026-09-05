@@ -81,3 +81,31 @@ def test_cli_rejects_a_non_positive_top_k(tmp_path: Path, capsys) -> None:
     code = main([*_args(tmp_path), "--top-k", "0"])
     assert code == 2
     assert "top-k" in capsys.readouterr().err
+
+
+def test_cli_check_thresholds_passes_on_the_committed_dataset(tmp_path: Path) -> None:
+    code = main([*_args(tmp_path), "--check-thresholds", "--quiet"])
+    assert code == 0
+    payload = json.loads((tmp_path / "q.json").read_text())
+    assert payload["thresholds"]["min"]["answer_correctness"] == 1.0
+    assert payload["regressions"] == []
+
+
+def test_cli_check_thresholds_fails_on_a_stricter_bound(tmp_path: Path, capsys) -> None:
+    strict = tmp_path / "strict.json"
+    strict.write_text('{"max": {"citation_accuracy": 0.5}}', encoding="utf-8")
+    code = main(
+        [*_args(tmp_path), "--check-thresholds", "--thresholds", str(strict), "--quiet"]
+    )
+    assert code == 1
+    assert "quality gate FAILED" in capsys.readouterr().err
+    payload = json.loads((tmp_path / "q.json").read_text())
+    assert payload["regressions"][0]["metric"] == "citation_accuracy"
+
+
+def test_cli_check_thresholds_rejects_a_malformed_file(tmp_path: Path, capsys) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"min": {"nope": 0.5}}', encoding="utf-8")
+    code = main([*_args(tmp_path), "--check-thresholds", "--thresholds", str(bad)])
+    assert code == 2
+    assert "unknown metric" in capsys.readouterr().err
