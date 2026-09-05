@@ -1,0 +1,32 @@
+# Pinned vLLM engine configuration for the reference model.
+#
+# Consumed by:
+#   vllm serve --config runtimes/vllm/config/llama-3.1-8b-instruct.yaml
+# Pinned server image:
+#   vllm/vllm-openai:v0.6.3.post1
+#
+# Keys are vLLM CLI flags with the leading "--" removed. Every value that
+# affects output is set explicitly so a run is reproducible; do not rely on
+# vLLM defaults changing between versions.
+
+# Model identity. served-model-name is the string clients send as "model" and
+# must equal INFERENCE_MODEL for the inference service.
+model: meta-llama/Llama-3.1-8B-Instruct
+served-model-name: meta-llama/Llama-3.1-8B-Instruct
+
+# Tokenizer: left unset on purpose so vLLM loads the tokenizer shipped with the
+# model repository. Overriding it would change tokenization and break
+# reproducibility.
+
+# Numeric behavior.
+dtype: bfloat16
+seed: 0
+
+# Capacity. Sized for a single 24 GB GPU; raise tensor-parallel-size for
+# multi-GPU hosts and keep max-model-len within the model's context window.
+max-model-len: 8192
+gpu-memory-utilization: 0.90
+tensor-parallel-size: 1
+
+# Serving.
+disable-log-requests: true
