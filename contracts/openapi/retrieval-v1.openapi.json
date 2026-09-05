@@ -3,7 +3,7 @@
   "info": {
     "title": "RAG Control Retrieval API",
     "version": "1.0.0",
-    "description": "Internal API contract for searching ranked evaluation evidence."
+    "description": "Internal API contract for ingesting and searching ranked evaluation evidence."
   },
   "servers": [
     {
@@ -12,6 +12,51 @@
     }
   ],
   "paths": {
+    "/documents": {
+      "post": {
+        "operationId": "upsertDocuments",
+        "summary": "Create or replace retrieval documents",
+        "tags": ["ingestion"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestDocumentsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Documents were stored successfully.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestDocumentsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The ingestion request failed validation."
+          },
+          "503": {
+            "description": "Persistent document storage is not configured."
+          }
+        }
+      }
+    },
     "/search": {
       "post": {
         "operationId": "searchEvidence",
@@ -79,6 +124,45 @@
       }
     },
     "schemas": {
+      "DocumentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "source", "content"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "title": {"type": "string", "minLength": 1, "maxLength": 200},
+          "source": {"type": "string", "minLength": 1, "maxLength": 500},
+          "content": {"type": "string", "minLength": 1, "maxLength": 20000},
+          "tags": {
+            "type": "array",
+            "maxItems": 20,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1, "maxLength": 64},
+            "default": []
+          }
+        }
+      },
+      "IngestDocumentsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["documents"],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {"$ref": "#/components/schemas/DocumentInput"}
+          }
+        }
+      },
+      "IngestDocumentsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["upserted"],
+        "properties": {
+          "upserted": {"type": "integer", "minimum": 1, "maximum": 100}
+        }
+      },
       "SearchRequest": {
         "type": "object",
         "additionalProperties": false,
