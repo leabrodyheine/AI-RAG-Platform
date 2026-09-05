@@ -149,8 +149,9 @@ class CacheableStore:
 
 
 class RecordingCache:
-    def __init__(self, lookup: CacheLookup) -> None:
+    def __init__(self, lookup: CacheLookup, *, stores_successfully: bool = True) -> None:
         self.lookup_result = lookup
+        self.stores_successfully = stores_successfully
         self.lookup_request = None
         self.store_request = None
 
@@ -158,8 +159,9 @@ class RecordingCache:
         self.lookup_request = args
         return self.lookup_result
 
-    async def store(self, *args) -> None:
+    async def store(self, *args) -> bool:
         self.store_request = args
+        return self.stores_successfully
 
 
 def test_search_returns_a_cache_hit_without_vector_search() -> None:
@@ -235,3 +237,17 @@ def test_search_does_not_write_after_a_cache_bypass() -> None:
     assert response.headers["X-Cache"] == "BYPASS"
     assert store.search_requests == [("request delay", 3)]
     assert cache.store_request is None
+
+
+def test_search_reports_bypass_when_a_cache_write_fails() -> None:
+    store = CacheableStore()
+    cache = RecordingCache(CacheLookup(status="MISS"), stores_successfully=False)
+    app.dependency_overrides[get_document_store] = lambda: store
+    app.dependency_overrides[get_retrieval_cache] = lambda: cache
+    try:
+        response = client.post("/search", json={"query": "request delay"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["X-Cache"] == "BYPASS"

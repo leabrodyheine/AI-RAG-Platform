@@ -35,11 +35,12 @@ async def test_cache_round_trips_ranked_results() -> None:
     client = AsyncMock()
     cache = RetrievalCache(client, ttl_seconds=90)
 
-    await cache.store("latency", 3, "model-v1", 1, [ranked_result()])
+    stored = await cache.store("latency", 3, "model-v1", 1, [ranked_result()])
     client.get.return_value = client.set.await_args.args[1]
     lookup = await cache.lookup("latency", 3, "model-v1", 1)
 
     assert lookup.status == "HIT"
+    assert stored is True
     assert lookup.results is not None
     assert lookup.results[0].document.id == "result-1"
     assert lookup.results[0].relevance == 0.875
@@ -83,9 +84,10 @@ async def test_cache_fails_open_when_redis_is_unavailable() -> None:
     cache = RetrievalCache(client, ttl_seconds=60)
 
     lookup = await cache.lookup("latency", 3, "model-v1", 1)
-    await cache.store("latency", 3, "model-v1", 1, [ranked_result()])
+    stored = await cache.store("latency", 3, "model-v1", 1, [ranked_result()])
 
     assert lookup.status == "BYPASS"
+    assert stored is False
 
 
 @pytest.mark.anyio

@@ -62,13 +62,14 @@ class RetrievalCache:
         embedding_version: str,
         corpus_generation: int,
         results: list[RankedDocument],
-    ) -> None:
+    ) -> bool:
         key = cache_key(query, top_k, embedding_version, corpus_generation)
         value = _serialize_results(results)
         try:
             await self._client.set(key, value, ex=self._ttl_seconds)
         except RedisError:
-            pass
+            return False
+        return True
 
     async def close(self) -> None:
         await self._client.aclose()

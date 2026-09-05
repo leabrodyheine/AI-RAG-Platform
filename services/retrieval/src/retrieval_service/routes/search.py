@@ -51,13 +51,15 @@ async def search(
         else:
             ranked_documents = await document_store.search(payload.query, payload.top_k)
             if cached.status == "MISS":
-                await retrieval_cache.store(
+                stored = await retrieval_cache.store(
                     payload.query,
                     payload.top_k,
                     document_store.embedding_version,
                     corpus_generation,
                     ranked_documents,
                 )
+                if not stored:
+                    response.headers["X-Cache"] = "BYPASS"
     results = [
         SearchResult(
             id=result.document.id,
