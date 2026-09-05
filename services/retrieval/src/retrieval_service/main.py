@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, status
 from fastapi.responses import JSONResponse
 
+from retrieval_service.cache import RetrievalCache
 from retrieval_service.config import Settings
 from retrieval_service.database import DocumentStore
 from retrieval_service.dependencies import get_document_store
@@ -31,12 +32,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
     else:
         document_store = None
+    retrieval_cache = (
+        RetrievalCache.from_url(settings.redis_url, settings.cache_ttl_seconds)
+        if document_store is not None and settings.redis_url is not None
+        else None
+    )
     app.state.document_store = document_store
+    app.state.retrieval_cache = retrieval_cache
     try:
         yield
     finally:
+        if retrieval_cache is not None:
+            await retrieval_cache.close()
         if document_store is not None:
             await document_store.close()
+        app.state.retrieval_cache = None
+        app.state.document_store = None
 
 
 app = FastAPI(title="Retrieval Service", version="0.1.0", lifespan=lifespan)
