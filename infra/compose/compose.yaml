@@ -67,6 +67,13 @@ services:
     ports:
       - "8003:8003"
     environment:
+      # The default stack is CPU-only. To compare a GPU backend, start a server
+      # per runtimes/ and override these (configuration only, no code change):
+      #   INFERENCE_BACKEND: vllm
+      #   INFERENCE_MODEL: meta-llama/Llama-3.1-8B-Instruct
+      #   VLLM_BASE_URL: http://host.docker.internal:8000
+      # or INFERENCE_BACKEND: triton / INFERENCE_MODEL: ensemble /
+      #   TRITON_BASE_URL: http://host.docker.internal:8000
       INFERENCE_BACKEND: deterministic
       INFERENCE_MODEL: deterministic-grounded-v1
     healthcheck:
