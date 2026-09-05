@@ -6,6 +6,7 @@ from retrieval_service.corpus import EVALUATION_DOCUMENTS, EvaluationDocument
 from retrieval_service.embeddings import EMBEDDING_DIMENSIONS, embed_text
 from retrieval_service.ingestion import DocumentChunk, chunk_document
 from retrieval_service.schemas import DocumentInput
+from retrieval_service.search import RankedDocument
 
 CREATE_VECTOR_EXTENSION_SQL = "CREATE EXTENSION IF NOT EXISTS vector"
 
@@ -77,6 +78,31 @@ INSERT INTO retrieval_chunks (document_id, chunk_index, content, embedding)
 VALUES ($1, $2, $3, $4::vector)
 """
 
+VECTOR_SEARCH_SQL = """
+WITH chunk_scores AS (
+    SELECT
+        document.id,
+        document.title,
+        document.source,
+        document.tags,
+        chunk.content AS excerpt,
+        LEAST(1.0, GREATEST(0.0, 1 - (chunk.embedding <=> $1::vector))) AS relevance
+    FROM retrieval_chunks AS chunk
+    JOIN retrieval_documents AS document ON document.id = chunk.document_id
+),
+ranked_chunks AS (
+    SELECT *, ROW_NUMBER() OVER (
+        PARTITION BY id ORDER BY relevance DESC, excerpt
+    ) AS chunk_rank
+    FROM chunk_scores
+)
+SELECT id, title, source, tags, excerpt, relevance
+FROM ranked_chunks
+WHERE chunk_rank = 1 AND relevance > 0
+ORDER BY relevance DESC, id
+LIMIT $2
+"""
+
 
 class DocumentStore:
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -123,6 +149,31 @@ class DocumentStore:
         async with self._pool.acquire() as connection:
             rows = await connection.fetch(LIST_DOCUMENTS_SQL)
         return tuple(_row_to_document(row) for row in rows)
+
+    async def search(self, query: str, top_k: int) -> list[RankedDocument]:
+        query_embedding = embed_text(query)
+        if not any(query_embedding):
+            return []
+
+        async with self._pool.acquire() as connection:
+            rows = await connection.fetch(
+                VECTOR_SEARCH_SQL,
+                _vector_literal(query_embedding),
+                top_k,
+            )
+        return [
+            RankedDocument(
+                document=EvaluationDocument(
+                    id=row["id"],
+                    title=row["title"],
+                    source=row["source"],
+                    content=row["excerpt"],
+                    tags=tuple(row["tags"]),
+                ),
+                relevance=round(float(row["relevance"]), 4),
+            )
+            for row in rows
+        ]
 
     async def is_ready(self) -> bool:
         async with self._pool.acquire() as connection:
@@ -187,5 +238,8 @@ def _chunk_values(
 ) -> tuple[str, int, str, str]:
     embedding_input = "\n".join((document.title, " ".join(document.tags), chunk.content))
     embedding = embed_text(embedding_input)
-    vector_literal = "[" + ",".join(f"{value:.12g}" for value in embedding) + "]"
-    return document.id, chunk.index, chunk.content, vector_literal
+    return document.id, chunk.index, chunk.content, _vector_literal(embedding)
+
+
+def _vector_literal(embedding: tuple[float, ...]) -> str:
+    return "[" + ",".join(f"{value:.12g}" for value in embedding) + "]"

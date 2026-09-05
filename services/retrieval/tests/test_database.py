@@ -9,6 +9,7 @@ from retrieval_service.database import (
     CREATE_DOCUMENTS_TABLE_SQL,
     CREATE_VECTOR_EXTENSION_SQL,
     DELETE_DOCUMENT_CHUNKS_SQL,
+    VECTOR_SEARCH_SQL,
     DocumentStore,
 )
 from retrieval_service.schemas import DocumentInput
@@ -153,6 +154,41 @@ async def test_list_documents_maps_database_rows() -> None:
 
     assert documents[0].id == "result-3"
     assert documents[0].tags == ("quality", "recall")
+
+
+@pytest.mark.anyio
+async def test_search_maps_the_best_vector_chunk_per_document() -> None:
+    connection = FakeConnection(
+        rows=[
+            {
+                "id": "result-4",
+                "title": "Result four",
+                "source": "evaluation/result-4.json",
+                "excerpt": "The most relevant chunk.",
+                "tags": ["retrieval"],
+                "relevance": 0.87654,
+            }
+        ]
+    )
+    store = DocumentStore(FakePool(connection))
+
+    results = await store.search("retrieval latency", 3)
+
+    assert results[0].document.content == "The most relevant chunk."
+    assert results[0].relevance == 0.8765
+    query_args = connection.fetch.await_args.args
+    assert query_args[0] == VECTOR_SEARCH_SQL
+    assert len(query_args[1].strip("[]").split(",")) == 256
+    assert query_args[2] == 3
+
+
+@pytest.mark.anyio
+async def test_search_skips_database_for_an_empty_embedding() -> None:
+    connection = FakeConnection()
+    store = DocumentStore(FakePool(connection))
+
+    assert await store.search("!!!", 3) == []
+    connection.fetch.assert_not_awaited()
 
 
 @pytest.mark.anyio
