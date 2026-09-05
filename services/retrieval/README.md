@@ -29,6 +29,23 @@ from each matching document. The in-memory mode retains deterministic
 query-term ranking. Both modes preserve the same stable document IDs and
 citation response shape.
 
+When both PostgreSQL and `REDIS_URL` are configured, persistent searches cache
+their ranked results. Keys hash the normalized query together with `topK`, the
+embedding model version, and an authoritative PostgreSQL corpus generation.
+Successful ingestion increments that generation in the document transaction,
+making every older cache entry unreachable without scanning or flushing Redis.
+
+Redis is fail-open: connection failures bypass caching and continue through
+semantic embedding and pgvector. Malformed entries are treated as misses and
+removed when possible. Empty search results are cached normally.
+
+Every successful search reports one of these headers:
+
+- `X-Cache: HIT` — returned directly from Redis.
+- `X-Cache: MISS` — retrieved from pgvector and written to Redis.
+- `X-Cache: BYPASS` — Redis is disabled, unavailable, or unnecessary in
+  database-free mode.
+
 Persistent mode defaults to FastEmbed with `BAAI/bge-small-en-v1.5`. It uses
 the model's retrieval-specific passage encoder during ingestion and query
 encoder during search, producing 384-dimensional semantic vectors. CPU-bound
@@ -94,12 +111,26 @@ curl -X POST http://localhost:8002/search \
   -d '{"query":"local throughput", "topK":3}'
 ```
 
+Use `-i` to compare cache behavior. The first identical request should report a
+miss and the second a hit until the configured TTL expires:
+
+```bash
+curl -i -X POST http://localhost:8002/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"retrieval latency", "topK":3}'
+```
+
+The local default is `RETRIEVAL_CACHE_TTL_SECONDS=60`. When running the service
+directly, leave `REDIS_URL` unset to measure the uncached path without changing
+retrieval results.
+
 `GET /health` is the process liveness check. `GET /ready` additionally verifies
 PostgreSQL when persistent storage is enabled.
 
 ## Current boundary
 
 This milestone provides versioned semantic embeddings and automatic safe
-re-indexing. Model evaluation and threshold tuning still need a representative
-retrieval dataset. Redis result caching is the next systems milestone for
-measuring cached versus uncached retrieval latency.
+re-indexing plus generation-safe Redis result caching. Model evaluation and
+threshold tuning still need a representative retrieval dataset. The next
+vertical slice is connecting the agent to real inference so evidence is
+synthesized by a model instead of the deterministic development answer builder.
