@@ -1,0 +1,285 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RAG Control Chat API",
+    "version": "1.0.0",
+    "description": "Public API contract for submitting an investigation question through the API gateway."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local API gateway"
+    }
+  ],
+  "paths": {
+    "/chat": {
+      "post": {
+        "operationId": "createChatAnswer",
+        "summary": "Answer an investigation question",
+        "description": "Forwards a validated question through the agent workflow and returns its answer, supporting evidence, and timing trace.",
+        "tags": ["chat"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              },
+              "example": {
+                "question": "What is driving p95 latency in the latest evaluation run?"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The agent completed the investigation.",
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestId"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                },
+                "example": {
+                  "content": "Retrieval is the primary bottleneck in the latest high-concurrency run.",
+                  "citations": [
+                    {
+                      "id": "retrieval-benchmark",
+                      "title": "Retrieval benchmark · run #1842",
+                      "source": "evaluation/performance/retrieval.json",
+                      "excerpt": "Cache misses increased vector-search p95 from 112 ms to 391 ms.",
+                      "relevance": 0.96
+                    }
+                  ],
+                  "trace": [
+                    {
+                      "label": "Agent",
+                      "detail": "Development response",
+                      "durationMs": 12
+                    }
+                  ],
+                  "totalDurationMs": 12
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "503": {
+            "$ref": "#/components/responses/AgentUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/AgentTimeout"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "RequestId": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "description": "Optional caller-provided correlation ID. The gateway generates one when omitted.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Correlation ID assigned to the request.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "schemas": {
+      "ChatRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question"],
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Natural-language investigation question after surrounding whitespace is removed.",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        }
+      },
+      "ChatResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["content", "citations", "trace", "totalDurationMs"],
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            }
+          },
+          "trace": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceStep"
+            }
+          },
+          "totalDurationMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "Citation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "source", "excerpt", "relevance"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "excerpt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "relevance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "TraceStep": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "detail", "durationMs"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 1
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "requestId"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["validation_error", "agent_unavailable", "agent_timeout"]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "The request body failed validation.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "code": "validation_error",
+              "message": "Question must contain between 1 and 4000 characters.",
+              "requestId": "01J8Y4Y7AN2D2X1WQ58T3NQ8N9"
+            }
+          }
+        }
+      },
+      "AgentUnavailable": {
+        "description": "The gateway could not connect to the agent service.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "code": "agent_unavailable",
+              "message": "The agent service is temporarily unavailable.",
+              "requestId": "01J8Y4Y7AN2D2X1WQ58T3NQ8N9"
+            }
+          }
+        }
+      },
+      "AgentTimeout": {
+        "description": "The agent did not respond before the gateway timeout.",
+        "headers": {
+          "X-Request-ID": {
+            "$ref": "#/components/headers/RequestId"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "code": "agent_timeout",
+              "message": "The agent service did not respond in time.",
+              "requestId": "01J8Y4Y7AN2D2X1WQ58T3NQ8N9"
+            }
+          }
+        }
+      }
+    }
+  }
+}

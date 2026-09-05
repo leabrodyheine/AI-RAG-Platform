@@ -1,4 +1,9 @@
 # OpenAPI contracts
 
-Add versioned API specifications here when service endpoints extend beyond the
-initial health checks.
+Versioned API specifications:
+
+- `chat-v1.openapi.json` defines the public API gateway `POST /chat` contract.
+
+The chat contract uses camelCase JSON fields to match browser conventions. A
+question must contain 1–4,000 characters after trimming. Successful and error
+responses always include an `X-Request-ID` correlation header.
