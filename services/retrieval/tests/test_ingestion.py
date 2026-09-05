@@ -36,6 +36,17 @@ def test_long_document_produces_overlapping_chunks() -> None:
     assert [chunk.index for chunk in chunks] == [0, 1]
 
 
+def test_default_chunking_covers_long_content_without_redundant_chunks() -> None:
+    words = [f"word-{index}" for index in range(241)]
+
+    chunks = chunk_document(make_document(" ".join(words)))
+
+    assert len(chunks) == 3
+    assert chunks[0].content.split()[-20:] == chunks[1].content.split()[:20]
+    assert chunks[1].content.split()[-20:] == chunks[2].content.split()[:20]
+    assert chunks[-1].content.split()[-1] == "word-240"
+
+
 @pytest.mark.parametrize(
     ("chunk_size", "overlap"),
     [(0, 0), (5, -1), (5, 5), (5, 6)],

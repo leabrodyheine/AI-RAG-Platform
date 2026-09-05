@@ -1,5 +1,6 @@
 import math
 
+from retrieval_service.corpus import EVALUATION_DOCUMENTS
 from retrieval_service.embeddings import EMBEDDING_DIMENSIONS, embed_text
 
 
@@ -29,3 +30,17 @@ def test_embeddings_rank_shared_terms_above_unrelated_text() -> None:
 
 def test_empty_text_has_a_zero_vector() -> None:
     assert embed_text("   ") == (0.0,) * EMBEDDING_DIMENSIONS
+
+
+def test_unrelated_query_does_not_collide_with_evaluation_corpus() -> None:
+    query = embed_text("weather forecast")
+
+    similarities = [
+        cosine_similarity(
+            query,
+            embed_text("\n".join((document.title, " ".join(document.tags), document.content))),
+        )
+        for document in EVALUATION_DOCUMENTS
+    ]
+
+    assert max(similarities) == 0

@@ -178,6 +178,8 @@ async def test_search_maps_the_best_vector_chunk_per_document() -> None:
     assert results[0].relevance == 0.8765
     query_args = connection.fetch.await_args.args
     assert query_args[0] == VECTOR_SEARCH_SQL
+    assert "chunk.embedding <=> $1::vector" in VECTOR_SEARCH_SQL
+    assert "PARTITION BY id ORDER BY relevance DESC" in VECTOR_SEARCH_SQL
     assert len(query_args[1].strip("[]").split(",")) == 256
     assert query_args[2] == 3
 

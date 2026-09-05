@@ -114,3 +114,18 @@ def test_search_ranks_documents_loaded_from_persistent_storage() -> None:
             "relevance": 0.91,
         }
     ]
+
+
+def test_persistent_search_does_not_fall_back_when_vectors_have_no_match() -> None:
+    class NoVectorMatch:
+        async def search(self, _query: str, _top_k: int):
+            return []
+
+    app.dependency_overrides[get_document_store] = lambda: NoVectorMatch()
+    try:
+        response = client.post("/search", json={"query": "retrieval latency"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"results": []}

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from retrieval_service.database import CREATE_CHUNKS_TABLE_SQL
+from retrieval_service.embeddings import EMBEDDING_DIMENSIONS
+
 MIGRATIONS = Path(__file__).parents[1] / "migrations"
 
 
@@ -10,3 +13,4 @@ def test_vector_migration_enables_pgvector_and_creates_chunk_index() -> None:
     assert "embedding vector(256) NOT NULL" in migration
     assert "REFERENCES retrieval_documents(id) ON DELETE CASCADE" in migration
     assert "USING hnsw (embedding vector_cosine_ops)" in migration
+    assert f"embedding vector({EMBEDDING_DIMENSIONS}) NOT NULL" in CREATE_CHUNKS_TABLE_SQL

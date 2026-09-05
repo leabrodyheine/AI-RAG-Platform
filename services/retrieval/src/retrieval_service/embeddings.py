@@ -18,8 +18,8 @@ def embed_text(text: str) -> tuple[float, ...]:
 
     for feature in features:
         digest = hashlib.blake2b(feature.encode(), digest_size=8).digest()
-        bucket = int.from_bytes(digest[:4]) % EMBEDDING_DIMENSIONS
-        sign = 1.0 if digest[4] & 1 else -1.0
+        bucket = int.from_bytes(digest) % EMBEDDING_DIMENSIONS
+        sign = 1.0 if digest[0] & 1 else -1.0
         vector[bucket] += sign
 
     magnitude = math.sqrt(sum(value * value for value in vector))
