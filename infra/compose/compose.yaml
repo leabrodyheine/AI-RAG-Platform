@@ -27,6 +27,7 @@ services:
       - "8001:8001"
     environment:
       RETRIEVAL_SERVICE_URL: http://retrieval:8002
+      RETRIEVAL_REQUEST_TIMEOUT_SECONDS: 5
       INFERENCE_SERVICE_URL: http://inference:8003
     depends_on:
       retrieval:
