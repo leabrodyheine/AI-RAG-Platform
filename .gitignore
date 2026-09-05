@@ -39,6 +39,14 @@ evaluation/reports/*
 load-tests/results/*
 !load-tests/results/README.md
 runtimes/triton/model_repository/*/
+# Keep the committed Triton config templates; generated engines and copied
+# preprocessing/postprocessing models stay out of Git.
+!runtimes/triton/model_repository/ensemble/
+!runtimes/triton/model_repository/tensorrt_llm/
+runtimes/triton/model_repository/ensemble/**
+runtimes/triton/model_repository/tensorrt_llm/**
+!runtimes/triton/model_repository/ensemble/config.pbtxt
+!runtimes/triton/model_repository/tensorrt_llm/config.pbtxt
 
 # Local infrastructure state
 *.log

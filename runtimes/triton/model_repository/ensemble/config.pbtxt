@@ -1,0 +1,54 @@
+# Minimal ensemble that the inference service's triton backend calls through
+# POST /v2/models/ensemble/generate.
+#
+# It chains preprocessing (tokenize) -> tensorrt_llm (decode) -> postprocessing
+# (detokenize). The preprocessing and postprocessing models are copied
+# unmodified from the pinned tensorrtllm_backend repo with the tokenizer path
+# filled in; see ../README.md. Placeholders written as ${NAME} are filled there.
+
+name: "ensemble"
+platform: "ensemble"
+max_batch_size: ${MAX_BATCH_SIZE}
+
+input [
+  { name: "text_input",  data_type: TYPE_STRING, dims: [ 1 ] },
+  { name: "max_tokens",  data_type: TYPE_INT32,  dims: [ 1 ] },
+  { name: "temperature", data_type: TYPE_FP32,   dims: [ 1 ], optional: true },
+  { name: "stop_words",  data_type: TYPE_STRING, dims: [ -1 ], optional: true },
+  { name: "stream",      data_type: TYPE_BOOL,   dims: [ 1 ], optional: true }
+]
+output [
+  { name: "text_output", data_type: TYPE_STRING, dims: [ -1 ] }
+]
+
+ensemble_scheduling {
+  step [
+    {
+      model_name: "preprocessing"
+      model_version: -1
+      input_map  { key: "QUERY",            value: "text_input" }
+      input_map  { key: "REQUEST_OUTPUT_LEN", value: "max_tokens" }
+      input_map  { key: "STOP_WORDS_DICT",  value: "stop_words" }
+      output_map { key: "INPUT_ID",         value: "_input_ids" }
+      output_map { key: "REQUEST_INPUT_LEN", value: "_input_lengths" }
+      output_map { key: "REQUEST_OUTPUT_LEN", value: "_request_output_len" }
+      output_map { key: "STOP_WORDS_IDS",   value: "_stop_words" }
+    },
+    {
+      model_name: "tensorrt_llm"
+      model_version: -1
+      input_map  { key: "input_ids",          value: "_input_ids" }
+      input_map  { key: "input_lengths",      value: "_input_lengths" }
+      input_map  { key: "request_output_len", value: "_request_output_len" }
+      input_map  { key: "temperature",        value: "temperature" }
+      input_map  { key: "stop_words_list",    value: "_stop_words" }
+      output_map { key: "output_ids",         value: "_output_ids" }
+    },
+    {
+      model_name: "postprocessing"
+      model_version: -1
+      input_map  { key: "TOKENS_BATCH", value: "_output_ids" }
+      output_map { key: "OUTPUT",       value: "text_output" }
+    }
+  ]
+}

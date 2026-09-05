@@ -1,0 +1,52 @@
+# Minimal TensorRT-LLM decoder configuration template.
+#
+# This is a trimmed version of the config.pbtxt shipped in the pinned
+# tensorrtllm_backend repo (see ../README.md). Only the fields that must be set
+# for a reproducible run are kept here; copy the upstream file if you need the
+# full option surface.
+#
+# Placeholders written as ${NAME} are filled by runtimes/triton/README.md.
+
+name: "tensorrt_llm"
+backend: "tensorrtllm"
+max_batch_size: ${MAX_BATCH_SIZE}
+
+model_transaction_policy {
+  decoupled: false
+}
+
+input [
+  { name: "input_ids",      data_type: TYPE_INT32, dims: [ -1 ] },
+  { name: "input_lengths",  data_type: TYPE_INT32, dims: [ 1 ], reshape: { shape: [ ] } },
+  { name: "request_output_len", data_type: TYPE_INT32, dims: [ 1 ] },
+  { name: "temperature",    data_type: TYPE_FP32,  dims: [ 1 ], optional: true },
+  { name: "stop_words_list", data_type: TYPE_INT32, dims: [ 2, -1 ], optional: true }
+]
+output [
+  { name: "output_ids", data_type: TYPE_INT32, dims: [ -1, -1 ] }
+]
+
+instance_group [
+  { count: 1, kind: KIND_GPU }
+]
+
+parameters: {
+  key: "gpt_model_type"
+  value: { string_value: "inflight_fused_batching" }
+}
+parameters: {
+  key: "gpt_model_path"
+  value: { string_value: "${ENGINE_DIR}" }
+}
+parameters: {
+  key: "batch_scheduler_policy"
+  value: { string_value: "guaranteed_no_evict" }
+}
+parameters: {
+  key: "decoding_mode"
+  value: { string_value: "top_k_top_p" }
+}
+parameters: {
+  key: "exclude_input_in_output"
+  value: { string_value: "true" }
+}
