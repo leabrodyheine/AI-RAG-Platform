@@ -21,6 +21,12 @@ export interface AssistantAnswer {
   totalDurationMs: number;
 }
 
+export interface ChatErrorResponse {
+  code: "validation_error" | "agent_unavailable" | "agent_timeout";
+  message: string;
+  requestId: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
