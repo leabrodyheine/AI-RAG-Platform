@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Sequence
 
 import asyncpg
@@ -216,7 +217,7 @@ class DocumentStore:
         return tuple(_row_to_document(row) for row in rows)
 
     async def search(self, query: str, top_k: int) -> list[RankedDocument]:
-        query_embedding = self._embedding_provider.embed_query(query)
+        query_embedding = await asyncio.to_thread(self._embedding_provider.embed_query, query)
         if not any(query_embedding):
             return []
         if len(query_embedding) != self._embedding_provider.dimensions:
@@ -290,7 +291,10 @@ async def _index_documents(
         for chunk in chunk_document(document)
     ]
     passage_inputs = [_embedding_input(document, chunk) for document, chunk in chunks]
-    embeddings = embedding_provider.embed_passages(passage_inputs)
+    embeddings = await asyncio.to_thread(
+        embedding_provider.embed_passages,
+        passage_inputs,
+    )
     if len(embeddings) != len(chunks):
         raise RuntimeError("embedding provider returned an unexpected number of vectors")
     if any(len(embedding) != embedding_provider.dimensions for embedding in embeddings):

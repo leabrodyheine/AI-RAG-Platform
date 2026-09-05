@@ -239,6 +239,20 @@ async def test_store_batches_passages_through_its_configured_provider() -> None:
 
 
 @pytest.mark.anyio
+async def test_store_runs_query_embedding_off_the_event_loop() -> None:
+    connection = FakeConnection()
+    store = DocumentStore(FakePool(connection))
+
+    with patch(
+        "retrieval_service.database.asyncio.to_thread",
+        AsyncMock(side_effect=lambda function, *args: function(*args)),
+    ) as to_thread:
+        await store.search("retrieval latency", 2)
+
+    to_thread.assert_awaited_once()
+
+
+@pytest.mark.anyio
 async def test_connect_closes_the_pool_when_initialization_fails() -> None:
     connection = FakeConnection()
     pool = FakePool(connection)
