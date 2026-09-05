@@ -1,12 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
 
 import { App } from "./App";
+import { createDemoAnswer } from "./api/platformFixtures";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 test("opens on the investigation workspace", () => {
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "Ask the system" })).toBeInTheDocument();
-  expect(screen.getByText("Demo data")).toBeInTheDocument();
+  expect(screen.getByText("Start an investigation")).toBeInTheDocument();
+  expect(screen.queryByText("Demo data")).not.toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
 });
 
@@ -30,7 +37,15 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("submits a demo investigation question", async () => {
+test("submits a live investigation question", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(createDemoAnswer("cache")), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    ),
+  );
   render(<App />);
 
   fireEvent.change(screen.getByRole("textbox", { name: "Ask a question" }), {
