@@ -269,6 +269,33 @@ async def test_store_runs_query_embedding_off_the_event_loop() -> None:
 
 
 @pytest.mark.anyio
+async def test_failed_ingestion_does_not_increment_corpus_generation() -> None:
+    class FailedProvider:
+        dimensions = 3
+        version = "failed-model"
+
+        def embed_query(self, _text: str) -> tuple[float, ...]:
+            return (1.0, 0.0, 0.0)
+
+        def embed_passages(self, _texts) -> list[tuple[float, ...]]:
+            raise RuntimeError("embedding failed")
+
+    connection = FakeConnection()
+    store = DocumentStore(FakePool(connection), FailedProvider())
+    document = DocumentInput(
+        id="failed-result",
+        title="Failed result",
+        source="evaluation/failed.json",
+        content="This document cannot be embedded.",
+    )
+
+    with pytest.raises(RuntimeError, match="embedding failed"):
+        await store.upsert_documents([document])
+
+    connection.fetchval.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_connect_closes_the_pool_when_initialization_fails() -> None:
     connection = FakeConnection()
     pool = FakePool(connection)
