@@ -31,7 +31,7 @@ services:
       INFERENCE_SERVICE_URL: http://inference:8003
     depends_on:
       retrieval:
-        condition: service_started
+        condition: service_healthy
       inference:
         condition: service_started
 
@@ -47,6 +47,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/ready', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   inference:
     build: ../../services/inference
