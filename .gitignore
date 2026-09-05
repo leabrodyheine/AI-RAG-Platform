@@ -2,6 +2,9 @@
 .idea/
 .vscode/
 
+# Local planning
+IMPLEMENTATION_CHECKLIST.md
+
 # Environment and credentials
 .env
 .env.*
