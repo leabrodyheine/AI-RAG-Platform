@@ -5,6 +5,7 @@ testpaths = [
   "services/agent/tests",
   "services/retrieval/tests",
   "services/inference/tests",
+  "tests/contracts",
   "tests/integration",
 ]
 

@@ -23,7 +23,7 @@ install-web:
 test: test-python test-web
 
 test-python:
-	$(PYTHON) -m pytest services/api-gateway/tests services/agent/tests services/retrieval/tests services/inference/tests
+	$(PYTHON) -m pytest
 
 test-web:
 	npm --prefix $(WEB_DIR) test -- --run
@@ -31,7 +31,7 @@ test-web:
 lint: lint-python lint-web
 
 lint-python:
-	$(PYTHON) -m ruff check services
+	$(PYTHON) -m ruff check services tests
 
 lint-web:
 	npm --prefix $(WEB_DIR) run lint
