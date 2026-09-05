@@ -64,6 +64,9 @@ class AgentClient:
         except httpx.TransportError as error:
             raise AgentResponseError("The agent response could not be read") from error
 
+        if response.status_code == httpx.codes.GATEWAY_TIMEOUT:
+            raise AgentTimeoutError("The agent service reported an upstream timeout")
+
         if not response.is_success:
             raise AgentResponseError(
                 f"The agent service returned HTTP {response.status_code}"

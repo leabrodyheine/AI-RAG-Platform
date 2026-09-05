@@ -152,6 +152,24 @@ async def test_agent_client_rejects_invalid_responses(response: httpx.Response) 
         await client.aclose()
 
 
+@pytest.mark.anyio
+async def test_agent_client_preserves_an_upstream_timeout() -> None:
+    client = AgentClient(
+        httpx.AsyncClient(
+            base_url="http://agent:8001",
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(504, json={"detail": "Retrieval timed out"})
+            ),
+        )
+    )
+
+    try:
+        with pytest.raises(AgentTimeoutError):
+            await client.answer("What is slow?")
+    finally:
+        await client.aclose()
+
+
 def test_gateway_lifespan_closes_the_shared_agent_client() -> None:
     with TestClient(app):
         agent_client = app.state.agent_client
