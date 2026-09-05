@@ -60,14 +60,20 @@ async def test_backend_is_deterministic_and_honours_max_tokens() -> None:
     assert first.completion_tokens == 4
 
 
+def settings(**overrides: object) -> Settings:
+    base = {
+        "backend": "deterministic",
+        "model": "local-test-model",
+        "backend_timeout_seconds": 30,
+        "backend_base_url": None,
+        "stop_sequences": (),
+    }
+    base.update(overrides)
+    return Settings(**base)  # type: ignore[arg-type]
+
+
 def test_create_backend_builds_the_deterministic_backend() -> None:
-    backend = create_backend(
-        Settings(
-            backend="deterministic",
-            model="local-test-model",
-            backend_timeout_seconds=30,
-        )
-    )
+    backend = create_backend(settings(backend="deterministic"))
 
     assert isinstance(backend, DeterministicBackend)
     assert backend.model == "local-test-model"
@@ -75,10 +81,4 @@ def test_create_backend_builds_the_deterministic_backend() -> None:
 
 def test_create_backend_rejects_an_unknown_backend() -> None:
     with pytest.raises(ValueError, match="unsupported inference backend"):
-        create_backend(
-            Settings(
-                backend="mystery",
-                model="local-test-model",
-                backend_timeout_seconds=30,
-            )
-        )
+        create_backend(settings(backend="mystery"))
