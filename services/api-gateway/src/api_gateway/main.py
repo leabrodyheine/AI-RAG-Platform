@@ -4,10 +4,11 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api_gateway.clients.agent import AgentClient
-from api_gateway.config import Settings
+from api_gateway.config import Settings, cors_allowed_origins_from_env
 from api_gateway.routes.chat import router as chat_router
 from api_gateway.routes.health import router as health_router
 from api_gateway.schemas import ErrorResponse
@@ -24,6 +25,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="AI Production Evaluation API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(cors_allowed_origins_from_env()),
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
+)
 app.include_router(chat_router)
 app.include_router(health_router)
 
