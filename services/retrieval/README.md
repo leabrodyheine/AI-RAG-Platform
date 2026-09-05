@@ -131,6 +131,6 @@ PostgreSQL when persistent storage is enabled.
 
 This milestone provides versioned semantic embeddings and automatic safe
 re-indexing plus generation-safe Redis result caching. Model evaluation and
-threshold tuning still need a representative retrieval dataset. The next
-vertical slice is connecting the agent to real inference so evidence is
-synthesized by a model instead of the deterministic development answer builder.
+threshold tuning still need a representative retrieval dataset. The agent now
+sends retrieved evidence to the inference service (`services/inference/`)
+instead of the former deterministic development answer builder.
