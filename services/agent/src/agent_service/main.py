@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from agent_service.clients.inference import InferenceClient
 from agent_service.clients.retrieval import RetrievalClient
 from agent_service.config import Settings
 from agent_service.routes.chat import router as chat_router
@@ -10,12 +11,16 @@ from agent_service.routes.chat import router as chat_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    retrieval_client = RetrievalClient.from_settings(Settings.from_env())
+    settings = Settings.from_env()
+    retrieval_client = RetrievalClient.from_settings(settings)
+    inference_client = InferenceClient.from_settings(settings)
     app.state.retrieval_client = retrieval_client
+    app.state.inference_client = inference_client
     try:
         yield
     finally:
         await retrieval_client.aclose()
+        await inference_client.aclose()
 
 
 app = FastAPI(title="Agent Service", version="0.1.0", lifespan=lifespan)
