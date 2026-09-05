@@ -29,11 +29,31 @@ from each matching document. The in-memory mode retains deterministic
 query-term ranking. Both modes preserve the same stable document IDs and
 citation response shape.
 
-The local embedding function uses normalized 256-dimensional feature hashing.
-It is deterministic, fast, and requires no network or model download, making it
-useful for validating ingestion, pgvector indexing, and service behavior. It is
-not a semantic language model and should not be used as the final quality
-baseline.
+Persistent mode defaults to FastEmbed with `BAAI/bge-small-en-v1.5`. It uses
+the model's retrieval-specific passage encoder during ingestion and query
+encoder during search, producing 384-dimensional semantic vectors. CPU-bound
+model work runs outside FastAPI's event loop.
+
+Every chunk records `EMBEDDING_MODEL_VERSION`. At startup, documents without
+chunks for the configured version are re-indexed. A vector-dimension change
+rebuilds only the derived chunk table; source documents remain intact. Change
+the version whenever model weights or embedding behavior changes.
+
+The first semantic startup downloads approximately 67 MB of model artifacts.
+Compose persists them in the `embedding-cache` volume so later starts reuse the
+same files.
+
+For tests or offline development, select deterministic feature hashing:
+
+```bash
+EMBEDDING_PROVIDER=feature-hash \
+DATABASE_URL=postgresql://rag_platform:local-development-only@localhost/rag_platform \
+uvicorn retrieval_service.main:app --port 8002
+```
+
+Feature hashing exercises the vector pipeline but is not a semantic quality
+baseline. Database-free mode still uses the lexical in-memory search path and
+does not initialize either embedding provider.
 
 ## Local workflow
 
@@ -79,8 +99,7 @@ PostgreSQL when persistent storage is enabled.
 
 ## Current boundary
 
-This milestone implements chunking, local embeddings, pgvector persistence, and
-nearest-neighbor retrieval. The next retrieval-quality step is replacing the
-feature-hashed embedder with a versioned production embedding model and
-re-indexing the corpus. Redis result caching remains separate follow-up work
-for the performance evaluation slice.
+This milestone provides versioned semantic embeddings and automatic safe
+re-indexing. Model evaluation and threshold tuning still need a representative
+retrieval dataset. Redis result caching is the next systems milestone for
+measuring cached versus uncached retrieval latency.
