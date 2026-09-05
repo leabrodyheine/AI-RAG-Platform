@@ -8,20 +8,32 @@ The retrieval service owns evaluation documents and exposes two internal APIs:
 
 ## Storage modes
 
-When `DATABASE_URL` is configured, startup creates the `retrieval_documents`
-table and seeds the version-controlled evaluation corpus only if the table is
-empty. Ingestion and subsequent searches then use PostgreSQL. The application
-accepts both normal PostgreSQL URLs and `postgresql+asyncpg://` URLs.
+When `DATABASE_URL` is configured, startup enables pgvector, creates the
+document and chunk tables, and seeds the version-controlled evaluation corpus
+only if the document table is empty. Existing documents without chunks are
+backfilled automatically. The application accepts both normal PostgreSQL URLs
+and `postgresql+asyncpg://` URLs.
 
 When `DATABASE_URL` is absent, search uses the corpus in
 `src/retrieval_service/corpus.py` directly. This lightweight mode is useful for
 unit tests and standalone development; ingestion returns `503` because it
 cannot persist documents.
 
-In both modes, ranking is deterministic query-term overlap with extra weight
-for title and tag matches. Storage and ranking are kept separate so pgvector
-embeddings can replace the lexical ranker without changing the agent-facing
-response.
+Persistent ingestion splits content into overlapping 120-word chunks. Each
+chunk is embedded together with its document title and tags, then the document
+and its complete replacement chunk set are written in one transaction.
+Re-ingesting an ID therefore cannot leave stale chunks behind.
+
+Persistent search uses pgvector cosine distance and returns the strongest chunk
+from each matching document. The in-memory mode retains deterministic
+query-term ranking. Both modes preserve the same stable document IDs and
+citation response shape.
+
+The local embedding function uses normalized 256-dimensional feature hashing.
+It is deterministic, fast, and requires no network or model download, making it
+useful for validating ingestion, pgvector indexing, and service behavior. It is
+not a semantic language model and should not be used as the final quality
+baseline.
 
 ## Local workflow
 
@@ -67,6 +79,8 @@ PostgreSQL when persistent storage is enabled.
 
 ## Current boundary
 
-This milestone persists whole evaluation documents and ranks the stored set in
-the service process. Document chunking, embeddings, pgvector nearest-neighbor
-queries, and Redis caching remain follow-up work.
+This milestone implements chunking, local embeddings, pgvector persistence, and
+nearest-neighbor retrieval. The next retrieval-quality step is replacing the
+feature-hashed embedder with a versioned production embedding model and
+re-indexing the corpus. Redis result caching remains separate follow-up work
+for the performance evaluation slice.
