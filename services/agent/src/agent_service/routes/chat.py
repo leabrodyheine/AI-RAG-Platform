@@ -15,9 +15,13 @@ from agent_service.clients.retrieval import (
     RetrievalClientError,
     RetrievalTimeoutError,
 )
-from agent_service.dependencies import get_inference_client, get_retrieval_client
-from agent_service.prompts import build_grounded_prompt
-from agent_service.schemas import ChatRequest, ChatResponse, TraceStep
+from agent_service.dependencies import (
+    get_inference_client,
+    get_retrieval_client,
+    get_workflow_config,
+)
+from agent_service.schemas import ChatRequest, ChatResponse
+from agent_service.workflow import WorkflowConfig, run_workflow
 
 router = APIRouter(tags=["chat"])
 
@@ -28,6 +32,7 @@ async def answer_question(
     response: Response,
     retrieval_client: Annotated[RetrievalClient, Depends(get_retrieval_client)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
+    workflow_config: Annotated[WorkflowConfig, Depends(get_workflow_config)],
     caller_request_id: Annotated[
         str | None,
         Header(alias="X-Request-ID", min_length=1, max_length=128),
@@ -36,9 +41,14 @@ async def answer_question(
     request_id = caller_request_id or str(uuid4())
     started_at = perf_counter_ns()
 
-    retrieval_started_at = perf_counter_ns()
     try:
-        citations = await retrieval_client.search(payload.question, request_id=request_id)
+        result = await run_workflow(
+            payload.question,
+            retrieval_client=retrieval_client,
+            inference_client=inference_client,
+            config=workflow_config,
+            request_id=request_id,
+        )
     except RetrievalTimeoutError:
         return _error_response(
             status.HTTP_504_GATEWAY_TIMEOUT,
@@ -51,13 +61,6 @@ async def answer_question(
             "The retrieval service is temporarily unavailable.",
             request_id,
         )
-    retrieval_duration_ms = (perf_counter_ns() - retrieval_started_at) // 1_000_000
-
-    prompt = build_grounded_prompt(payload.question, citations)
-
-    generation_started_at = perf_counter_ns()
-    try:
-        generated = await inference_client.generate(prompt, request_id=request_id)
     except InferenceTimeoutError:
         return _error_response(
             status.HTTP_504_GATEWAY_TIMEOUT,
@@ -70,30 +73,13 @@ async def answer_question(
             "The inference service is temporarily unavailable.",
             request_id,
         )
-    generation_duration_ms = (perf_counter_ns() - generation_started_at) // 1_000_000
 
     total_duration_ms = (perf_counter_ns() - started_at) // 1_000_000
     response.headers["X-Request-ID"] = request_id
-    source_label = "source" if len(citations) == 1 else "sources"
-
     return ChatResponse(
-        content=generated.content,
-        citations=citations,
-        trace=[
-            TraceStep(
-                label="Retrieve",
-                detail=f"{len(citations)} matching evaluation {source_label}",
-                duration_ms=retrieval_duration_ms,
-            ),
-            TraceStep(
-                label="Generate",
-                detail=(
-                    f"{generated.model} produced {generated.completion_tokens} "
-                    f"completion tokens from {generated.prompt_tokens} prompt tokens"
-                ),
-                duration_ms=generation_duration_ms,
-            ),
-        ],
+        content=result.content,
+        citations=result.citations,
+        trace=result.trace,
         total_duration_ms=total_duration_ms,
     )
 

@@ -9,8 +9,12 @@ and timing is recorded as a trace step; no hidden reasoning is exposed.
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
+from time import perf_counter_ns
 
-from agent_service.schemas import Citation
+from agent_service.clients.inference import GeneratedAnswer, InferenceClient
+from agent_service.clients.retrieval import RetrievalClient
+from agent_service.prompts import build_grounded_prompt
+from agent_service.schemas import Citation, TraceStep
 
 
 class WorkflowState(StrEnum):
@@ -192,3 +196,149 @@ def rewrite_query(question: str) -> str:
     return " ".join(
         term for term in _WORD.findall(question.lower()) if term not in _STOP_TERMS
     )
+
+
+STEP_LIMIT_ANSWER = (
+    "I could not finish checking the evidence within the workflow's step limit. "
+    "Try asking a more specific question."
+)
+
+
+@dataclass(frozen=True)
+class WorkflowResult:
+    content: str
+    citations: list[Citation]
+    trace: list[TraceStep]
+
+
+def _elapsed_ms(start_ns: int) -> int:
+    return (perf_counter_ns() - start_ns) // 1_000_000
+
+
+def _retrieved_detail(citations: list[Citation]) -> str:
+    if not citations:
+        return "no sources returned"
+    top = max(citation.relevance for citation in citations)
+    label = "source" if len(citations) == 1 else "sources"
+    return f"{len(citations)} {label}, top relevance {top:.2f}"
+
+
+def _generated_detail(generated: GeneratedAnswer) -> str:
+    return (
+        f"{generated.model} produced {generated.completion_tokens} completion "
+        f"tokens from {generated.prompt_tokens} prompt tokens"
+    )
+
+
+def _halt(trace: list[TraceStep], reason: str) -> WorkflowResult:
+    trace.append(TraceStep(label="Stop", detail=reason, duration_ms=0))
+    return WorkflowResult(content=STEP_LIMIT_ANSWER, citations=[], trace=trace)
+
+
+async def run_workflow(
+    question: str,
+    *,
+    retrieval_client: RetrievalClient,
+    inference_client: InferenceClient,
+    config: WorkflowConfig,
+    request_id: str,
+) -> WorkflowResult:
+    """Run the bounded decision loop and return the answer with its trace.
+
+    Client failures (timeout, unavailable, malformed) propagate to the caller so
+    the route can translate them; every other outcome returns a valid result.
+    """
+    trace: list[TraceStep] = []
+    steps_remaining = config.max_steps
+
+    plan_started = perf_counter_ns()
+    decision = decide_retrieval(question)
+    trace.append(
+        TraceStep(
+            label="Plan",
+            detail=decision.detail,
+            duration_ms=_elapsed_ms(plan_started),
+        )
+    )
+
+    if not decision.retrieval_needed:
+        trace.append(
+            TraceStep(label="Answer directly", detail="no retrieval required", duration_ms=0)
+        )
+        return WorkflowResult(content=decision.direct_answer, citations=[], trace=trace)
+
+    if steps_remaining <= 0:
+        return _halt(trace, "step limit reached before retrieval")
+
+    retrieve_started = perf_counter_ns()
+    citations = await retrieval_client.search(question, request_id=request_id)
+    steps_remaining -= 1
+    trace.append(
+        TraceStep(
+            label="Retrieve",
+            detail=_retrieved_detail(citations),
+            duration_ms=_elapsed_ms(retrieve_started),
+        )
+    )
+
+    assessment = assess_evidence(citations, config)
+    trace.append(
+        TraceStep(label="Assess evidence", detail=assessment.detail, duration_ms=0)
+    )
+
+    if not assessment.strong and steps_remaining > 0:
+        rewritten = rewrite_query(question)
+        if rewritten and rewritten != keyword_string(question):
+            trace.append(
+                TraceStep(
+                    label="Rewrite query",
+                    detail=f"retrying as: {rewritten}",
+                    duration_ms=0,
+                )
+            )
+            retry_started = perf_counter_ns()
+            retry_citations = await retrieval_client.search(rewritten, request_id=request_id)
+            steps_remaining -= 1
+            trace.append(
+                TraceStep(
+                    label="Retrieve after rewrite",
+                    detail=_retrieved_detail(retry_citations),
+                    duration_ms=_elapsed_ms(retry_started),
+                )
+            )
+            retry_assessment = assess_evidence(retry_citations, config)
+            trace.append(
+                TraceStep(
+                    label="Assess evidence after rewrite",
+                    detail=retry_assessment.detail,
+                    duration_ms=0,
+                )
+            )
+            if is_better(retry_assessment, assessment):
+                citations, assessment = retry_citations, retry_assessment
+        else:
+            trace.append(
+                TraceStep(
+                    label="Rewrite query",
+                    detail="no distinct rewrite available; keeping original evidence",
+                    duration_ms=0,
+                )
+            )
+
+    if steps_remaining <= 0:
+        return _halt(trace, "step limit reached before generation")
+
+    usable = assessment.usable
+    generate_started = perf_counter_ns()
+    generated = await inference_client.generate(
+        build_grounded_prompt(question, usable),
+        request_id=request_id,
+    )
+    trace.append(
+        TraceStep(
+            label="Generate",
+            detail=_generated_detail(generated),
+            duration_ms=_elapsed_ms(generate_started),
+        )
+    )
+    return WorkflowResult(content=generated.content, citations=usable, trace=trace)

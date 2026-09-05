@@ -70,6 +70,7 @@ async def test_chat_flows_from_the_browser_through_retrieval_and_inference() -> 
     assert body["citations"][0]["id"] == "retrieval-benchmark-1842"
     assert body["content"].startswith("Based on the retrieved evidence,")
     assert body["content"].rstrip().endswith("[1]")
-    assert [step["label"] for step in body["trace"]] == ["Retrieve", "Generate"]
-    assert body["trace"][1]["detail"].startswith("deterministic-grounded-v1 produced ")
+    trace_labels = [step["label"] for step in body["trace"]]
+    assert trace_labels == ["Plan", "Retrieve", "Assess evidence", "Generate"]
+    assert body["trace"][-1]["detail"].startswith("deterministic-grounded-v1 produced ")
     assert body["totalDurationMs"] >= 0

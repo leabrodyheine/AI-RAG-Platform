@@ -8,31 +8,35 @@ from agent_service.clients.inference import (
     InferenceTimeoutError,
 )
 from agent_service.clients.retrieval import RetrievalClientError, RetrievalTimeoutError
-from agent_service.dependencies import get_inference_client, get_retrieval_client
+from agent_service.dependencies import (
+    get_inference_client,
+    get_retrieval_client,
+    get_workflow_config,
+)
 from agent_service.main import app
 from agent_service.schemas import Citation
+from agent_service.workflow import DIRECT_ANSWER, STEP_LIMIT_ANSWER, WorkflowConfig
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
 
-def retrieved_evidence() -> list[Citation]:
-    return [
-        Citation(
-            id="retrieval-benchmark-1842",
-            title="Retrieval benchmark · run #1842",
-            source="evaluation/performance/retrieval.json",
-            excerpt="Cache misses increased vector-search p95 from 112 ms to 391 ms.",
-            relevance=0.9,
-        )
-    ]
+def citation(relevance: float, ident: str = "retrieval-benchmark-1842") -> Citation:
+    return Citation(
+        id=ident,
+        title="Retrieval benchmark · run #1842",
+        source="evaluation/performance/retrieval.json",
+        excerpt="Cache misses increased vector-search p95 from 112 ms to 391 ms.",
+        relevance=relevance,
+    )
 
 
 @dataclass
 class StubRetrievalClient:
-    results: list[Citation] = field(default_factory=retrieved_evidence)
+    results: list[Citation] = field(default_factory=lambda: [citation(0.9)])
+    result_map: dict[str, list[Citation]] | None = None
     error: Exception | None = None
-    calls: list[tuple[str, int, str | None]] = field(default_factory=list)
+    calls: list[tuple[str, str | None]] = field(default_factory=list)
 
     async def search(
         self,
@@ -41,9 +45,11 @@ class StubRetrievalClient:
         top_k: int = 3,
         request_id: str | None = None,
     ) -> list[Citation]:
-        self.calls.append((query, top_k, request_id))
+        self.calls.append((query, request_id))
         if self.error:
             raise self.error
+        if self.result_map is not None:
+            return self.result_map.get(query, [])
         return self.results
 
 
@@ -84,20 +90,31 @@ def inference_client() -> StubInferenceClient:
     return StubInferenceClient()
 
 
+@pytest.fixture
+def workflow_config() -> WorkflowConfig:
+    return WorkflowConfig()
+
+
 @pytest.fixture(autouse=True)
-def override_clients(
+def override_dependencies(
     retrieval_client: StubRetrievalClient,
     inference_client: StubInferenceClient,
+    workflow_config: WorkflowConfig,
 ):
     app.dependency_overrides[get_retrieval_client] = lambda: retrieval_client
     app.dependency_overrides[get_inference_client] = lambda: inference_client
+    app.dependency_overrides[get_workflow_config] = lambda: workflow_config
     try:
         yield
     finally:
         app.dependency_overrides.clear()
 
 
-def test_answer_returns_the_generated_contract_response(
+def labels(body: dict) -> list[str]:
+    return [step["label"] for step in body["trace"]]
+
+
+def test_answer_runs_the_retrieve_assess_generate_path(
     retrieval_client: StubRetrievalClient,
     inference_client: StubInferenceClient,
 ) -> None:
@@ -114,38 +131,25 @@ def test_answer_returns_the_generated_contract_response(
     assert body["content"] == (
         "Based on the retrieved evidence, cache misses raised p95. [1]"
     )
-    assert body["citations"] == [
-        {
-            "id": "retrieval-benchmark-1842",
-            "title": "Retrieval benchmark · run #1842",
-            "source": "evaluation/performance/retrieval.json",
-            "excerpt": "Cache misses increased vector-search p95 from 112 ms to 391 ms.",
-            "relevance": 0.9,
-        }
-    ]
-    assert [step["label"] for step in body["trace"]] == ["Retrieve", "Generate"]
-    assert body["trace"][0]["detail"] == "1 matching evaluation source"
-    assert body["trace"][1]["detail"] == (
+    assert body["citations"] == [citation(0.9).model_dump(by_alias=True)]
+    assert labels(body) == ["Plan", "Retrieve", "Assess evidence", "Generate"]
+    assert body["trace"][0]["detail"] == "question needs evaluation evidence"
+    assert body["trace"][1]["detail"] == "1 source, top relevance 0.90"
+    assert "top 0.90" in body["trace"][2]["detail"]
+    assert body["trace"][3]["detail"] == (
         "deterministic-grounded-v1 produced 9 completion tokens from 64 prompt tokens"
     )
-    assert body["totalDurationMs"] >= 0
-    assert retrieval_client.calls == [
-        ("What is driving p95 latency?", 3, "agent-request-123")
-    ]
+    assert retrieval_client.calls == [("What is driving p95 latency?", "agent-request-123")]
+    assert inference_client.calls[0][1] == "agent-request-123"
 
 
 def test_answer_sends_a_grounded_prompt_to_inference(
     inference_client: StubInferenceClient,
 ) -> None:
-    response = client.post(
-        "/answer",
-        json={"question": "What is driving p95 latency?"},
-        headers={"X-Request-ID": "agent-request-123"},
-    )
+    response = client.post("/answer", json={"question": "What is driving p95 latency?"})
 
     assert response.status_code == 200
-    prompt, forwarded_request_id = inference_client.calls[0]
-    assert forwarded_request_id == "agent-request-123"
+    prompt = inference_client.calls[0][0]
     assert "Question: What is driving p95 latency?" in prompt
     assert (
         "[1] Retrieval benchmark · run #1842 — "
@@ -153,7 +157,57 @@ def test_answer_sends_a_grounded_prompt_to_inference(
     ) in prompt
 
 
-def test_answer_generates_over_an_empty_evidence_set(
+def test_answer_responds_directly_without_retrieval_or_inference(
+    retrieval_client: StubRetrievalClient,
+    inference_client: StubInferenceClient,
+) -> None:
+    response = client.post("/answer", json={"question": "What can you do?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["content"] == DIRECT_ANSWER
+    assert body["citations"] == []
+    assert labels(body) == ["Plan", "Answer directly"]
+    assert retrieval_client.calls == []
+    assert inference_client.calls == []
+
+
+def test_answer_rewrites_a_weak_query_and_keeps_the_stronger_evidence(
+    retrieval_client: StubRetrievalClient,
+    inference_client: StubInferenceClient,
+) -> None:
+    strong = citation(0.82, "rewrite-hit")
+    retrieval_client.result_map = {
+        "Why did the cache p95 regress badly?": [citation(0.12, "weak-hit")],
+        "cache p95 regress badly": [strong],
+    }
+
+    response = client.post(
+        "/answer",
+        json={"question": "Why did the cache p95 regress badly?"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [c["id"] for c in body["citations"]] == ["rewrite-hit"]
+    assert labels(body) == [
+        "Plan",
+        "Retrieve",
+        "Assess evidence",
+        "Rewrite query",
+        "Retrieve after rewrite",
+        "Assess evidence after rewrite",
+        "Generate",
+    ]
+    assert body["trace"][3]["detail"] == "retrying as: cache p95 regress badly"
+    assert [call[0] for call in retrieval_client.calls] == [
+        "Why did the cache p95 regress badly?",
+        "cache p95 regress badly",
+    ]
+    assert "[1] Retrieval benchmark · run #1842" in inference_client.calls[0][0]
+
+
+def test_answer_reports_insufficient_evidence_without_fabricating_citations(
     retrieval_client: StubRetrievalClient,
     inference_client: StubInferenceClient,
 ) -> None:
@@ -165,14 +219,47 @@ def test_answer_generates_over_an_empty_evidence_set(
         completion_tokens=11,
     )
 
-    response = client.post("/answer", json={"question": "weather forecast"})
+    response = client.post("/answer", json={"question": "snowfall totals tomorrow"})
 
     assert response.status_code == 200
     body = response.json()
     assert body["citations"] == []
     assert body["content"].startswith("The retrieved evidence does not support")
-    assert body["trace"][0]["detail"] == "0 matching evaluation sources"
+    assert body["trace"][2]["detail"] == "no sources retrieved"
     assert "(no evidence retrieved)" in inference_client.calls[0][0]
+
+
+def test_answer_drops_evidence_below_the_relevance_threshold(
+    retrieval_client: StubRetrievalClient,
+    inference_client: StubInferenceClient,
+) -> None:
+    retrieval_client.results = [citation(0.05, "noise-hit")]
+
+    response = client.post("/answer", json={"question": "Why did the run regress?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["citations"] == []
+    assert "(no evidence retrieved)" in inference_client.calls[0][0]
+
+
+def test_answer_halts_at_the_step_limit_before_generating(
+    retrieval_client: StubRetrievalClient,
+    inference_client: StubInferenceClient,
+    workflow_config: WorkflowConfig,
+) -> None:
+    workflow_config = WorkflowConfig(max_steps=1)
+    app.dependency_overrides[get_workflow_config] = lambda: workflow_config
+
+    response = client.post("/answer", json={"question": "What is driving p95 latency?"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["content"] == STEP_LIMIT_ANSWER
+    assert body["citations"] == []
+    assert labels(body) == ["Plan", "Retrieve", "Assess evidence", "Stop"]
+    assert body["trace"][-1]["detail"] == "step limit reached before generation"
+    assert inference_client.calls == []
 
 
 def test_answer_strips_surrounding_question_whitespace(
