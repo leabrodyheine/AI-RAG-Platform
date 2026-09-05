@@ -3,10 +3,13 @@
 import hashlib
 import math
 import re
-from collections.abc import Sequence
-from typing import Protocol
+from collections.abc import Iterable, Sequence
+from typing import Any, Protocol
 
 EMBEDDING_DIMENSIONS = 256
+SEMANTIC_EMBEDDING_DIMENSIONS = 384
+DEFAULT_SEMANTIC_MODEL = "BAAI/bge-small-en-v1.5"
+DEFAULT_SEMANTIC_MODEL_VERSION = "fastembed:BAAI/bge-small-en-v1.5:v1"
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
 
@@ -28,6 +31,53 @@ class FeatureHashEmbeddingProvider:
 
     def embed_passages(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
         return [embed_text(text) for text in texts]
+
+
+class FastEmbedProvider:
+    dimensions = SEMANTIC_EMBEDDING_DIMENSIONS
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_SEMANTIC_MODEL,
+        version: str = DEFAULT_SEMANTIC_MODEL_VERSION,
+        *,
+        model: Any | None = None,
+    ) -> None:
+        if model is None:
+            from fastembed import TextEmbedding
+
+            model = TextEmbedding(model_name=model_name)
+        self._model = model
+        self.model_name = model_name
+        self.version = version
+
+    def embed_query(self, text: str) -> tuple[float, ...]:
+        return self._collect_vectors(self._model.query_embed(text), expected_count=1)[0]
+
+    def embed_passages(self, texts: Sequence[str]) -> list[tuple[float, ...]]:
+        if not texts:
+            return []
+        return self._collect_vectors(
+            self._model.passage_embed(texts),
+            expected_count=len(texts),
+        )
+
+    def _collect_vectors(
+        self,
+        vectors: Iterable[Any],
+        *,
+        expected_count: int,
+    ) -> list[tuple[float, ...]]:
+        collected = [tuple(float(value) for value in vector) for vector in vectors]
+        if len(collected) != expected_count:
+            raise RuntimeError(
+                f"embedding model returned {len(collected)} vectors; expected {expected_count}"
+            )
+        if any(len(vector) != self.dimensions for vector in collected):
+            raise RuntimeError(
+                f"embedding model must return {self.dimensions}-dimensional vectors"
+            )
+        return collected
 
 
 def embed_text(text: str) -> tuple[float, ...]:

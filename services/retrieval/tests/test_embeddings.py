@@ -1,8 +1,13 @@
 import math
 
+import pytest
 from retrieval_service.corpus import EVALUATION_DOCUMENTS
 from retrieval_service.embeddings import (
+    DEFAULT_SEMANTIC_MODEL,
+    DEFAULT_SEMANTIC_MODEL_VERSION,
     EMBEDDING_DIMENSIONS,
+    SEMANTIC_EMBEDDING_DIMENSIONS,
+    FastEmbedProvider,
     FeatureHashEmbeddingProvider,
     embed_text,
 )
@@ -60,3 +65,41 @@ def test_feature_hash_provider_embeds_queries_and_passages() -> None:
         embed_text("first"),
         embed_text("second"),
     ]
+
+
+class FakeSemanticModel:
+    def query_embed(self, _text: str):
+        yield [0.25] * SEMANTIC_EMBEDDING_DIMENSIONS
+
+    def passage_embed(self, texts):
+        for index, _text in enumerate(texts, start=1):
+            yield [float(index)] * SEMANTIC_EMBEDDING_DIMENSIONS
+
+
+def test_fastembed_provider_uses_query_and_passage_encoders() -> None:
+    provider = FastEmbedProvider(model=FakeSemanticModel())
+
+    assert provider.model_name == DEFAULT_SEMANTIC_MODEL
+    assert provider.version == DEFAULT_SEMANTIC_MODEL_VERSION
+    assert provider.embed_query("latency") == (0.25,) * SEMANTIC_EMBEDDING_DIMENSIONS
+    assert provider.embed_passages(["first", "second"]) == [
+        (1.0,) * SEMANTIC_EMBEDDING_DIMENSIONS,
+        (2.0,) * SEMANTIC_EMBEDDING_DIMENSIONS,
+    ]
+
+
+def test_fastembed_provider_does_not_call_model_for_an_empty_batch() -> None:
+    provider = FastEmbedProvider(model=FakeSemanticModel())
+
+    assert provider.embed_passages([]) == []
+
+
+def test_fastembed_provider_rejects_the_wrong_vector_dimensions() -> None:
+    class WrongDimensions(FakeSemanticModel):
+        def query_embed(self, _text: str):
+            yield [0.25] * 12
+
+    provider = FastEmbedProvider(model=WrongDimensions())
+
+    with pytest.raises(RuntimeError, match="384-dimensional"):
+        provider.embed_query("latency")
