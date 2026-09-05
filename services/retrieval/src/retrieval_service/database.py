@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import asyncpg
 
 from retrieval_service.corpus import EVALUATION_DOCUMENTS, EvaluationDocument
-from retrieval_service.embeddings import EMBEDDING_DIMENSIONS, embed_text
+from retrieval_service.embeddings import EmbeddingProvider, FeatureHashEmbeddingProvider
 from retrieval_service.ingestion import DocumentChunk, chunk_document
 from retrieval_service.schemas import DocumentInput
 from retrieval_service.search import RankedDocument
@@ -27,14 +27,50 @@ CREATE TABLE IF NOT EXISTS retrieval_documents (
 )
 """
 
-CREATE_CHUNKS_TABLE_SQL = f"""
+def create_chunks_table_sql(dimensions: int) -> str:
+    return f"""
 CREATE TABLE IF NOT EXISTS retrieval_chunks (
     document_id TEXT NOT NULL REFERENCES retrieval_documents(id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
     content TEXT NOT NULL CHECK (char_length(content) > 0),
-    embedding vector({EMBEDDING_DIMENSIONS}) NOT NULL,
+    embedding vector({dimensions}) NOT NULL,
+    embedding_model TEXT,
     PRIMARY KEY (document_id, chunk_index)
 )
+"""
+
+
+def reset_chunks_for_dimension_sql(dimensions: int) -> str:
+    return f"""
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_attribute AS attribute
+        JOIN pg_class AS relation ON relation.oid = attribute.attrelid
+        WHERE relation.relname = 'retrieval_chunks'
+          AND attribute.attname = 'embedding'
+          AND format_type(attribute.atttypid, attribute.atttypmod) <> 'vector({dimensions})'
+    ) THEN
+        DROP TABLE retrieval_chunks;
+    END IF;
+END
+$$
+"""
+
+
+CREATE_CHUNKS_TABLE_SQL = create_chunks_table_sql(
+    FeatureHashEmbeddingProvider.dimensions
+)
+
+ADD_EMBEDDING_MODEL_COLUMN_SQL = """
+ALTER TABLE retrieval_chunks
+ADD COLUMN IF NOT EXISTS embedding_model TEXT
+"""
+
+REQUIRE_EMBEDDING_MODEL_SQL = """
+ALTER TABLE retrieval_chunks
+ALTER COLUMN embedding_model SET NOT NULL
 """
 
 CREATE_CHUNKS_INDEX_SQL = """
@@ -63,7 +99,9 @@ LIST_UNINDEXED_DOCUMENTS_SQL = """
 SELECT id, title, source, content, tags
 FROM retrieval_documents AS document
 WHERE NOT EXISTS (
-    SELECT 1 FROM retrieval_chunks AS chunk WHERE chunk.document_id = document.id
+    SELECT 1
+    FROM retrieval_chunks AS chunk
+    WHERE chunk.document_id = document.id AND chunk.embedding_model = $1
 )
 ORDER BY id
 """
@@ -74,8 +112,8 @@ WHERE document_id = ANY($1::text[])
 """
 
 INSERT_CHUNK_SQL = """
-INSERT INTO retrieval_chunks (document_id, chunk_index, content, embedding)
-VALUES ($1, $2, $3, $4::vector)
+INSERT INTO retrieval_chunks (document_id, chunk_index, content, embedding, embedding_model)
+VALUES ($1, $2, $3, $4::vector, $5)
 """
 
 VECTOR_SEARCH_SQL = """
@@ -89,6 +127,7 @@ WITH chunk_scores AS (
         LEAST(1.0, GREATEST(0.0, 1 - (chunk.embedding <=> $1::vector))) AS relevance
     FROM retrieval_chunks AS chunk
     JOIN retrieval_documents AS document ON document.id = chunk.document_id
+    WHERE chunk.embedding_model = $3
 ),
 ranked_chunks AS (
     SELECT *, ROW_NUMBER() OVER (
@@ -105,13 +144,24 @@ LIMIT $2
 
 
 class DocumentStore:
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(
+        self,
+        pool: asyncpg.Pool,
+        embedding_provider: EmbeddingProvider | None = None,
+    ) -> None:
         self._pool = pool
+        self._embedding_provider = embedding_provider or FeatureHashEmbeddingProvider()
+        if not 1 <= self._embedding_provider.dimensions <= 2_000:
+            raise ValueError("embedding dimensions must be between 1 and 2000")
 
     @classmethod
-    async def connect(cls, database_url: str) -> "DocumentStore":
+    async def connect(
+        cls,
+        database_url: str,
+        embedding_provider: EmbeddingProvider | None = None,
+    ) -> "DocumentStore":
         pool = await asyncpg.create_pool(dsn=database_url, min_size=1, max_size=5)
-        store = cls(pool)
+        store = cls(pool, embedding_provider)
         try:
             await store.initialize()
         except Exception:
@@ -124,25 +174,40 @@ class DocumentStore:
             async with connection.transaction():
                 await connection.execute(CREATE_VECTOR_EXTENSION_SQL)
                 await connection.execute(CREATE_DOCUMENTS_TABLE_SQL)
-                await connection.execute(CREATE_CHUNKS_TABLE_SQL)
+                await connection.execute(
+                    reset_chunks_for_dimension_sql(self._embedding_provider.dimensions)
+                )
+                await connection.execute(
+                    create_chunks_table_sql(self._embedding_provider.dimensions)
+                )
+                await connection.execute(ADD_EMBEDDING_MODEL_COLUMN_SQL)
                 await connection.execute(CREATE_CHUNKS_INDEX_SQL)
                 document_count = await connection.fetchval(
                     "SELECT COUNT(*) FROM retrieval_documents"
                 )
                 if document_count == 0:
-                    await _upsert_and_index(connection, EVALUATION_DOCUMENTS)
+                    await _upsert_and_index(
+                        connection,
+                        EVALUATION_DOCUMENTS,
+                        self._embedding_provider,
+                    )
                 else:
-                    unindexed_rows = await connection.fetch(LIST_UNINDEXED_DOCUMENTS_SQL)
+                    unindexed_rows = await connection.fetch(
+                        LIST_UNINDEXED_DOCUMENTS_SQL,
+                        self._embedding_provider.version,
+                    )
                     if unindexed_rows:
                         await _index_documents(
                             connection,
                             tuple(_row_to_document(row) for row in unindexed_rows),
+                            self._embedding_provider,
                         )
+                await connection.execute(REQUIRE_EMBEDDING_MODEL_SQL)
 
     async def upsert_documents(self, documents: Sequence[DocumentInput]) -> int:
         async with self._pool.acquire() as connection:
             async with connection.transaction():
-                await _upsert_and_index(connection, documents)
+                await _upsert_and_index(connection, documents, self._embedding_provider)
         return len(documents)
 
     async def list_documents(self) -> tuple[EvaluationDocument, ...]:
@@ -151,15 +216,18 @@ class DocumentStore:
         return tuple(_row_to_document(row) for row in rows)
 
     async def search(self, query: str, top_k: int) -> list[RankedDocument]:
-        query_embedding = embed_text(query)
+        query_embedding = self._embedding_provider.embed_query(query)
         if not any(query_embedding):
             return []
+        if len(query_embedding) != self._embedding_provider.dimensions:
+            raise RuntimeError("embedding provider returned an unexpected vector size")
 
         async with self._pool.acquire() as connection:
             rows = await connection.fetch(
                 VECTOR_SEARCH_SQL,
                 _vector_literal(query_embedding),
                 top_k,
+                self._embedding_provider.version,
             )
         return [
             RankedDocument(
@@ -198,26 +266,38 @@ def _document_values(
 async def _upsert_and_index(
     connection: asyncpg.Connection,
     documents: Sequence[DocumentInput | EvaluationDocument],
+    embedding_provider: EmbeddingProvider,
 ) -> None:
     await connection.executemany(
         UPSERT_DOCUMENT_SQL,
         [_document_values(document) for document in documents],
     )
-    await _index_documents(connection, documents)
+    await _index_documents(connection, documents, embedding_provider)
 
 
 async def _index_documents(
     connection: asyncpg.Connection,
     documents: Sequence[DocumentInput | EvaluationDocument],
+    embedding_provider: EmbeddingProvider,
 ) -> None:
     await connection.execute(
         DELETE_DOCUMENT_CHUNKS_SQL,
         [document.id for document in documents],
     )
-    chunk_rows = [
-        _chunk_values(document, chunk)
+    chunks = [
+        (document, chunk)
         for document in documents
         for chunk in chunk_document(document)
+    ]
+    passage_inputs = [_embedding_input(document, chunk) for document, chunk in chunks]
+    embeddings = embedding_provider.embed_passages(passage_inputs)
+    if len(embeddings) != len(chunks):
+        raise RuntimeError("embedding provider returned an unexpected number of vectors")
+    if any(len(embedding) != embedding_provider.dimensions for embedding in embeddings):
+        raise RuntimeError("embedding provider returned an unexpected vector size")
+    chunk_rows = [
+        _chunk_values(document, chunk, embedding, embedding_provider.version)
+        for (document, chunk), embedding in zip(chunks, embeddings, strict=True)
     ]
     await connection.executemany(INSERT_CHUNK_SQL, chunk_rows)
 
@@ -235,10 +315,23 @@ def _row_to_document(row: asyncpg.Record) -> EvaluationDocument:
 def _chunk_values(
     document: DocumentInput | EvaluationDocument,
     chunk: DocumentChunk,
-) -> tuple[str, int, str, str]:
-    embedding_input = "\n".join((document.title, " ".join(document.tags), chunk.content))
-    embedding = embed_text(embedding_input)
-    return document.id, chunk.index, chunk.content, _vector_literal(embedding)
+    embedding: tuple[float, ...],
+    embedding_model: str,
+) -> tuple[str, int, str, str, str]:
+    return (
+        document.id,
+        chunk.index,
+        chunk.content,
+        _vector_literal(embedding),
+        embedding_model,
+    )
+
+
+def _embedding_input(
+    document: DocumentInput | EvaluationDocument,
+    chunk: DocumentChunk,
+) -> str:
+    return "\n".join((document.title, " ".join(document.tags), chunk.content))
 
 
 def _vector_literal(embedding: tuple[float, ...]) -> str:

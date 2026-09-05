@@ -80,6 +80,19 @@ class FastEmbedProvider:
         return collected
 
 
+def create_embedding_provider(
+    provider_name: str,
+    *,
+    model_name: str = DEFAULT_SEMANTIC_MODEL,
+    model_version: str = DEFAULT_SEMANTIC_MODEL_VERSION,
+) -> EmbeddingProvider:
+    if provider_name == "feature-hash":
+        return FeatureHashEmbeddingProvider()
+    if provider_name == "fastembed":
+        return FastEmbedProvider(model_name=model_name, version=model_version)
+    raise ValueError(f"unsupported embedding provider: {provider_name}")
+
+
 def embed_text(text: str) -> tuple[float, ...]:
     """Create a normalized feature-hashed vector without external model downloads."""
     tokens = TOKEN_PATTERN.findall(text.casefold())

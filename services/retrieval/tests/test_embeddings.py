@@ -9,6 +9,7 @@ from retrieval_service.embeddings import (
     SEMANTIC_EMBEDDING_DIMENSIONS,
     FastEmbedProvider,
     FeatureHashEmbeddingProvider,
+    create_embedding_provider,
     embed_text,
 )
 
@@ -103,3 +104,14 @@ def test_fastembed_provider_rejects_the_wrong_vector_dimensions() -> None:
 
     with pytest.raises(RuntimeError, match="384-dimensional"):
         provider.embed_query("latency")
+
+
+def test_provider_factory_builds_the_offline_provider() -> None:
+    provider = create_embedding_provider("feature-hash")
+
+    assert isinstance(provider, FeatureHashEmbeddingProvider)
+
+
+def test_provider_factory_rejects_unknown_providers() -> None:
+    with pytest.raises(ValueError, match="unsupported embedding provider"):
+        create_embedding_provider("unknown")

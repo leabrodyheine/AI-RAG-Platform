@@ -4,14 +4,17 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from retrieval_service.corpus import EVALUATION_DOCUMENTS
 from retrieval_service.database import (
+    ADD_EMBEDDING_MODEL_COLUMN_SQL,
     CREATE_CHUNKS_INDEX_SQL,
-    CREATE_CHUNKS_TABLE_SQL,
     CREATE_DOCUMENTS_TABLE_SQL,
     CREATE_VECTOR_EXTENSION_SQL,
     DELETE_DOCUMENT_CHUNKS_SQL,
     VECTOR_SEARCH_SQL,
     DocumentStore,
+    create_chunks_table_sql,
+    reset_chunks_for_dimension_sql,
 )
+from retrieval_service.embeddings import FeatureHashEmbeddingProvider
 from retrieval_service.schemas import DocumentInput
 
 
@@ -53,11 +56,13 @@ async def test_initialize_creates_and_seeds_an_empty_document_table() -> None:
 
     await store.initialize()
 
-    schema_statements = [call.args[0] for call in connection.execute.await_args_list[:4]]
+    schema_statements = [call.args[0] for call in connection.execute.await_args_list[:6]]
     assert schema_statements == [
         CREATE_VECTOR_EXTENSION_SQL,
         CREATE_DOCUMENTS_TABLE_SQL,
-        CREATE_CHUNKS_TABLE_SQL,
+        reset_chunks_for_dimension_sql(FeatureHashEmbeddingProvider.dimensions),
+        create_chunks_table_sql(FeatureHashEmbeddingProvider.dimensions),
+        ADD_EMBEDDING_MODEL_COLUMN_SQL,
         CREATE_CHUNKS_INDEX_SQL,
     ]
     seeded_rows = connection.executemany.await_args_list[0].args[1]
@@ -67,6 +72,7 @@ async def test_initialize_creates_and_seeds_an_empty_document_table() -> None:
     assert len(seeded_chunks) == len(EVALUATION_DOCUMENTS)
     assert seeded_chunks[0][0] == EVALUATION_DOCUMENTS[0].id
     assert seeded_chunks[0][3].startswith("[")
+    assert seeded_chunks[0][4] == "feature-hash-v1"
 
 
 @pytest.mark.anyio
@@ -133,6 +139,7 @@ async def test_upsert_documents_returns_the_written_count() -> None:
         "p95 latency was 95 ms.",
     )
     assert len(indexed_chunks[0][3].strip("[]").split(",")) == 256
+    assert indexed_chunks[0][4] == "feature-hash-v1"
 
 
 @pytest.mark.anyio
@@ -182,6 +189,7 @@ async def test_search_maps_the_best_vector_chunk_per_document() -> None:
     assert "PARTITION BY id ORDER BY relevance DESC" in VECTOR_SEARCH_SQL
     assert len(query_args[1].strip("[]").split(",")) == 256
     assert query_args[2] == 3
+    assert query_args[3] == "feature-hash-v1"
 
 
 @pytest.mark.anyio
@@ -191,6 +199,43 @@ async def test_search_skips_database_for_an_empty_embedding() -> None:
 
     assert await store.search("!!!", 3) == []
     connection.fetch.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_store_batches_passages_through_its_configured_provider() -> None:
+    class RecordingProvider:
+        dimensions = 3
+        version = "semantic-model@v2"
+
+        def __init__(self) -> None:
+            self.passages = []
+
+        def embed_query(self, _text: str) -> tuple[float, ...]:
+            return (1.0, 0.0, 0.0)
+
+        def embed_passages(self, texts) -> list[tuple[float, ...]]:
+            self.passages = list(texts)
+            return [(1.0, 0.0, 0.0) for _text in texts]
+
+    connection = FakeConnection()
+    provider = RecordingProvider()
+    store = DocumentStore(FakePool(connection), provider)
+    document = DocumentInput(
+        id="semantic-result",
+        title="Semantic result",
+        source="evaluation/semantic.json",
+        content="The request delay was reduced.",
+        tags=("latency",),
+    )
+
+    await store.upsert_documents([document])
+
+    assert provider.passages == [
+        "Semantic result\nlatency\nThe request delay was reduced."
+    ]
+    indexed_chunk = connection.executemany.await_args_list[1].args[1][0]
+    assert indexed_chunk[3] == "[1,0,0]"
+    assert indexed_chunk[4] == "semantic-model@v2"
 
 
 @pytest.mark.anyio
