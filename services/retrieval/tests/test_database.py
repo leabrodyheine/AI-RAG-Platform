@@ -3,7 +3,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from retrieval_service.corpus import EVALUATION_DOCUMENTS
-from retrieval_service.database import DocumentStore
+from retrieval_service.database import (
+    CREATE_CHUNKS_INDEX_SQL,
+    CREATE_CHUNKS_TABLE_SQL,
+    CREATE_DOCUMENTS_TABLE_SQL,
+    CREATE_VECTOR_EXTENSION_SQL,
+    DELETE_DOCUMENT_CHUNKS_SQL,
+    DocumentStore,
+)
 from retrieval_service.schemas import DocumentInput
 
 
@@ -45,10 +52,20 @@ async def test_initialize_creates_and_seeds_an_empty_document_table() -> None:
 
     await store.initialize()
 
-    connection.execute.assert_awaited_once()
-    seeded_rows = connection.executemany.await_args.args[1]
+    schema_statements = [call.args[0] for call in connection.execute.await_args_list[:4]]
+    assert schema_statements == [
+        CREATE_VECTOR_EXTENSION_SQL,
+        CREATE_DOCUMENTS_TABLE_SQL,
+        CREATE_CHUNKS_TABLE_SQL,
+        CREATE_CHUNKS_INDEX_SQL,
+    ]
+    seeded_rows = connection.executemany.await_args_list[0].args[1]
     assert len(seeded_rows) == len(EVALUATION_DOCUMENTS)
     assert seeded_rows[0][0] == EVALUATION_DOCUMENTS[0].id
+    seeded_chunks = connection.executemany.await_args_list[1].args[1]
+    assert len(seeded_chunks) == len(EVALUATION_DOCUMENTS)
+    assert seeded_chunks[0][0] == EVALUATION_DOCUMENTS[0].id
+    assert seeded_chunks[0][3].startswith("[")
 
 
 @pytest.mark.anyio
@@ -59,6 +76,28 @@ async def test_initialize_does_not_replace_existing_documents() -> None:
     await store.initialize()
 
     connection.executemany.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_initialize_backfills_documents_created_before_vector_migration() -> None:
+    connection = FakeConnection(
+        count=2,
+        rows=[
+            {
+                "id": "legacy-result",
+                "title": "Legacy result",
+                "source": "evaluation/legacy.json",
+                "content": "Legacy retrieval latency was 140 ms.",
+                "tags": ["retrieval"],
+            }
+        ],
+    )
+    store = DocumentStore(FakePool(connection))
+
+    await store.initialize()
+
+    indexed_chunks = connection.executemany.await_args.args[1]
+    assert indexed_chunks[0][0] == "legacy-result"
 
 
 @pytest.mark.anyio
@@ -76,7 +115,7 @@ async def test_upsert_documents_returns_the_written_count() -> None:
     count = await store.upsert_documents([document])
 
     assert count == 1
-    assert connection.executemany.await_args.args[1] == [
+    assert connection.executemany.await_args_list[0].args[1] == [
         (
             "result-2",
             "Result two",
@@ -85,6 +124,14 @@ async def test_upsert_documents_returns_the_written_count() -> None:
             ["latency"],
         )
     ]
+    connection.execute.assert_awaited_once_with(DELETE_DOCUMENT_CHUNKS_SQL, ["result-2"])
+    indexed_chunks = connection.executemany.await_args_list[1].args[1]
+    assert indexed_chunks[0][:3] == (
+        "result-2",
+        0,
+        "p95 latency was 95 ms.",
+    )
+    assert len(indexed_chunks[0][3].strip("[]").split(",")) == 256
 
 
 @pytest.mark.anyio
