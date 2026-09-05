@@ -8,6 +8,7 @@ from inference_service.backends.base import (
     InferenceBackendUnavailableError,
 )
 from inference_service.backends.deterministic import DeterministicBackend
+from inference_service.backends.triton import TritonBackend
 from inference_service.backends.vllm import VLLMBackend
 from inference_service.config import Settings
 
@@ -18,6 +19,7 @@ __all__ = [
     "InferenceBackendError",
     "InferenceBackendTimeoutError",
     "InferenceBackendUnavailableError",
+    "TritonBackend",
     "VLLMBackend",
     "create_backend",
 ]
@@ -29,6 +31,13 @@ def create_backend(settings: Settings) -> InferenceBackend:
         return DeterministicBackend(model=settings.model)
     if settings.backend == "vllm":
         return VLLMBackend(
+            base_url=_require_base_url(settings),
+            model=settings.model,
+            timeout_seconds=settings.backend_timeout_seconds,
+            stop_sequences=settings.stop_sequences,
+        )
+    if settings.backend == "triton":
+        return TritonBackend(
             base_url=_require_base_url(settings),
             model=settings.model,
             timeout_seconds=settings.backend_timeout_seconds,
