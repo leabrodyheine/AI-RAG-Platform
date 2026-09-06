@@ -158,10 +158,48 @@ def render_markdown(report: dict) -> str:
         )
     lines.append("")
 
-    if report.get("telemetry"):
-        lines.append("## Server and host telemetry")
-        lines.append("")
-        lines.append("See the `telemetry` block in the JSON report.")
-        lines.append("")
+    telemetry = report.get("telemetry")
+    if telemetry:
+        lines.extend(_render_telemetry(telemetry))
 
     return "\n".join(lines)
+
+
+def _render_telemetry(telemetry: dict) -> list[str]:
+    lines = ["## Server and host telemetry", ""]
+
+    host = telemetry.get("host") or {}
+    if host:
+        lines.append(
+            f"- CPU: {_fmt(host.get('cpu_percent_mean'))}% mean, "
+            f"{_fmt(host.get('cpu_percent_max'))}% max"
+        )
+        lines.append(
+            f"- Memory: {_fmt(host.get('mem_percent_mean'))}% mean, "
+            f"{_fmt(host.get('mem_used_mb_max'))} MB peak used"
+        )
+    gpu = telemetry.get("gpu") or {}
+    if gpu.get("available"):
+        lines.append(
+            f"- GPU ({gpu.get('name')}): {_fmt(gpu.get('util_percent_mean'))}% mean util, "
+            f"{_fmt(gpu.get('mem_used_mb_max'))} MB peak used"
+        )
+    else:
+        lines.append("- GPU: not present on this host")
+    lines.append("")
+
+    server = telemetry.get("server_metrics") or {}
+    if server:
+        lines.append("| Family | Labels | Count | Mean ms / delta |")
+        lines.append("| --- | --- | --- | --- |")
+        for family, groups in server.items():
+            for label_key, value in groups.items():
+                if isinstance(value, dict):
+                    lines.append(
+                        f"| {family} | {label_key} | {value['count']} | {_fmt(value['mean_ms'])} |"
+                    )
+                else:
+                    lines.append(f"| {family} | {label_key} | - | {_fmt(value)} |")
+        lines.append("")
+
+    return lines

@@ -19,6 +19,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from evaluation.performance.aggregate import RequestRecord, aggregate_run
 from evaluation.performance.report import build_report, render_markdown
@@ -28,6 +29,10 @@ from evaluation.performance.scenarios import (
     ScenarioError,
     load_scenario,
 )
+from evaluation.performance.telemetry import TelemetryRecorder
+
+# The offline fallback stack publishes one /metrics endpoint per service.
+_SERVICE_PORTS = (8000, 8001, 8002, 8003)
 
 EXIT_OK = 0
 EXIT_FAILED = 1
@@ -55,8 +60,28 @@ def _question_set_path(scenario: Scenario) -> str:
     return str(candidate)
 
 
-def execute_scenario(scenario: Scenario, *, host: str) -> tuple[list[RequestRecord], float]:
-    """Run the scenario's stages in order and collect one record per request."""
+def default_metrics_endpoints(host: str) -> list[str]:
+    """One ``/metrics`` URL per service, derived from the gateway ``--host``."""
+    parts = urlsplit(host)
+    hostname = parts.hostname or "localhost"
+    scheme = parts.scheme or "http"
+    return [
+        urlunsplit((scheme, f"{hostname}:{port}", "/metrics", "", "")) for port in _SERVICE_PORTS
+    ]
+
+
+def execute_scenario(
+    scenario: Scenario,
+    *,
+    host: str,
+    metrics_endpoints: list[str] | None = None,
+) -> tuple[list[RequestRecord], float, dict | None]:
+    """Run the scenario's stages in order and collect one record per request.
+
+    When ``metrics_endpoints`` is given, a background recorder samples those
+    ``/metrics`` pages and host resources for the length of the run; its summary
+    is returned as the third element (``None`` when sampling is disabled).
+    """
     import gevent
     from locust.env import Environment
 
@@ -81,13 +106,20 @@ def execute_scenario(scenario: Scenario, *, host: str) -> tuple[list[RequestReco
 
     env.events.request.add_listener(_on_request)
     runner = env.create_local_runner()
+    recorder = TelemetryRecorder(metrics_endpoints) if metrics_endpoints else None
+    if recorder is not None:
+        recorder.start()
     try:
         for stage in scenario.stages:
             runner.start(stage.users, spawn_rate=stage.spawn_rate)
             gevent.sleep(stage.duration_seconds)
     finally:
         runner.quit()
-    return records, time.monotonic() - started
+        if recorder is not None:
+            recorder.stop()
+    elapsed = time.monotonic() - started
+    telemetry = recorder.summary(warmup_seconds=scenario.warmup_seconds) if recorder else None
+    return records, elapsed, telemetry
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,6 +132,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scenario-dir", type=Path, default=DEFAULT_SCENARIO_DIR)
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--markdown-out", type=Path, default=None)
+    parser.add_argument(
+        "--metrics-endpoint",
+        action="append",
+        dest="metrics_endpoints",
+        metavar="URL",
+        help="a /metrics page to sample (repeatable; defaults to ports 8000-8003 on --host)",
+    )
+    parser.add_argument(
+        "--no-telemetry",
+        action="store_true",
+        help="skip server-metric and host-resource sampling",
+    )
     parser.add_argument(
         "--check-pass-fail",
         action="store_true",
@@ -124,9 +168,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return EXIT_USAGE
 
-    records, elapsed = execute_scenario(scenario, host=args.host)
+    if args.no_telemetry:
+        metrics_endpoints = None
+    else:
+        metrics_endpoints = args.metrics_endpoints or default_metrics_endpoints(args.host)
+
+    records, elapsed, telemetry = execute_scenario(
+        scenario, host=args.host, metrics_endpoints=metrics_endpoints
+    )
     aggregate = aggregate_run(records, scenario=scenario, total_run_seconds=elapsed)
-    report = build_report(aggregate, scenario=scenario, host=args.host)
+    report = build_report(aggregate, scenario=scenario, host=args.host, telemetry=telemetry)
 
     json_out = args.json_out or DEFAULT_RESULT_DIR / f"{scenario.name}-latest.json"
     markdown_out = args.markdown_out or DEFAULT_RESULT_DIR / f"{scenario.name}-latest.md"
