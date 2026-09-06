@@ -1,6 +1,7 @@
 [tool.pytest.ini_options]
 addopts = "-ra --import-mode=importlib"
 testpaths = [
+  "libs/observability/tests",
   "services/api-gateway/tests",
   "services/agent/tests",
   "services/retrieval/tests",

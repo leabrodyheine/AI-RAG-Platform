@@ -17,7 +17,7 @@ help:
 install: install-python install-web
 
 install-python:
-	$(PYTHON) -m pip install -e "services/api-gateway[dev]" -e "services/agent[dev]" -e "services/retrieval[dev]" -e "services/inference[dev]"
+	$(PYTHON) -m pip install -e "libs/observability[dev]" -e "services/api-gateway[dev]" -e "services/agent[dev]" -e "services/retrieval[dev]" -e "services/inference[dev]"
 
 install-web:
 	npm --prefix $(WEB_DIR) install
@@ -33,7 +33,7 @@ test-web:
 lint: lint-python lint-web
 
 lint-python:
-	$(PYTHON) -m ruff check services tests scripts evaluation
+	$(PYTHON) -m ruff check libs services tests scripts evaluation
 
 lint-web:
 	npm --prefix $(WEB_DIR) run lint
