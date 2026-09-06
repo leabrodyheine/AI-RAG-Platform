@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
 from fastapi.responses import JSONResponse
+from rag_observability import instrument_app
 
 from retrieval_service.cache import RetrievalCache
 from retrieval_service.config import Settings
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Retrieval Service", version="0.1.0", lifespan=lifespan)
 app.include_router(documents_router)
 app.include_router(search_router)
+instrument_app(app, "retrieval")
 
 
 @app.get("/health", tags=["health"])

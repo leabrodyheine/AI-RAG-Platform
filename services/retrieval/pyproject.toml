@@ -13,6 +13,7 @@ dependencies = [
   "fastapi>=0.115,<1",
   "pgvector>=0.3,<1",
   "redis>=5,<6",
+  "rag-platform-observability",
   "uvicorn[standard]>=0.30,<1",
 ]
 

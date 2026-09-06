@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
 from fastapi.responses import JSONResponse
+from rag_observability import instrument_app
 
 from inference_service.backends import InferenceBackend, create_backend
 from inference_service.config import Settings
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Inference Service", version="0.1.0", lifespan=lifespan)
 app.include_router(generate_router)
+instrument_app(app, "inference")
 
 
 @app.get("/health", tags=["health"])
