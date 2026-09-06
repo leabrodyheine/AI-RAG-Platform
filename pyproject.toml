@@ -9,6 +9,7 @@ testpaths = [
   "tests/contracts",
   "tests/integration",
   "evaluation/quality/tests",
+  "evaluation/performance/tests",
 ]
 
 [tool.ruff]

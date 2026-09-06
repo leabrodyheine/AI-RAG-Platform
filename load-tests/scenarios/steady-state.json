@@ -1,0 +1,14 @@
+{
+  "schema": "load-scenario/v1",
+  "name": "steady-state",
+  "description": "Constant moderate load for the baseline measurement: 16 concurrent users for two minutes after a warm-up. This is the scenario the before/after optimization is compared on.",
+  "warmup": "15s",
+  "stages": [
+    {"duration": "120s", "users": 16, "spawn_rate": 4}
+  ],
+  "pass_fail": {
+    "max_error_rate": 0.01,
+    "max_p95_ms": 2500,
+    "min_throughput_rps": 5.0
+  }
+}

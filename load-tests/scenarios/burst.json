@@ -1,0 +1,15 @@
+{
+  "schema": "load-scenario/v1",
+  "name": "burst",
+  "description": "A calm baseline, a sudden spike to many users, then back to calm. Checks that a traffic surge is absorbed and that latency recovers afterwards rather than staying degraded.",
+  "warmup": "5s",
+  "stages": [
+    {"duration": "20s", "users": 4, "spawn_rate": 4},
+    {"duration": "20s", "users": 48, "spawn_rate": 48},
+    {"duration": "30s", "users": 4, "spawn_rate": 4}
+  ],
+  "pass_fail": {
+    "max_error_rate": 0.05,
+    "max_p95_ms": 6000
+  }
+}

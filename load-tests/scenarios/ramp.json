@@ -1,0 +1,16 @@
+{
+  "schema": "load-scenario/v1",
+  "name": "ramp",
+  "description": "Step the user count up in equal stages to find the concurrency at which p95 latency or error rate starts to climb (the knee). Each stage holds its user count long enough for latency to settle.",
+  "warmup": "10s",
+  "stages": [
+    {"duration": "45s", "users": 8, "spawn_rate": 4},
+    {"duration": "45s", "users": 16, "spawn_rate": 4},
+    {"duration": "45s", "users": 24, "spawn_rate": 4},
+    {"duration": "45s", "users": 32, "spawn_rate": 4}
+  ],
+  "pass_fail": {
+    "max_error_rate": 0.02,
+    "max_p95_ms": 4000
+  }
+}

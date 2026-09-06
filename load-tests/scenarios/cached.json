@@ -1,0 +1,17 @@
+{
+  "schema": "load-scenario/v1",
+  "name": "cached",
+  "description": "Steady load with the retrieval cache enabled: repeated questions are served from Redis. Compared against 'uncached' to quantify the cache's effect on p95 retrieval latency. Requires Postgres and Redis (docker compose up postgres redis); the env block points retrieval at their published ports.",
+  "warmup": "25s",
+  "stages": [
+    {"duration": "120s", "users": 16, "spawn_rate": 4}
+  ],
+  "env": {
+    "DATABASE_URL": "postgresql+asyncpg://rag_platform:local-development-only@localhost:5432/rag_platform",
+    "REDIS_URL": "redis://localhost:6379/0"
+  },
+  "pass_fail": {
+    "max_error_rate": 0.01,
+    "max_p95_ms": 1500
+  }
+}

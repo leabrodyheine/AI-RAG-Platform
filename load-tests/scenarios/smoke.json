@@ -1,0 +1,13 @@
+{
+  "schema": "load-scenario/v1",
+  "name": "smoke",
+  "description": "Minimal load. Confirms the chat path answers under a handful of concurrent users before a longer run is worth starting; used as a gate in CI.",
+  "warmup": "3s",
+  "stages": [
+    {"duration": "20s", "users": 4, "spawn_rate": 4}
+  ],
+  "pass_fail": {
+    "max_error_rate": 0.0,
+    "max_p95_ms": 2000
+  }
+}
