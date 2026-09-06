@@ -33,7 +33,7 @@ test-web:
 lint: lint-python lint-web
 
 lint-python:
-	$(PYTHON) -m ruff check libs services tests scripts evaluation
+	$(PYTHON) -m ruff check libs services tests scripts evaluation load-tests
 
 lint-web:
 	npm --prefix $(WEB_DIR) run lint

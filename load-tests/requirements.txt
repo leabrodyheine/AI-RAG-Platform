@@ -1,0 +1,9 @@
+# Load-testing tool, pinned for reproducibility.
+#
+# Locust is the chosen tool: pure Python (installs into the same virtualenv as
+# the services, no separate runtime), scenarios are plain Python so they can
+# reuse the project's dataset and contracts, and it reports the p50/p95/p99,
+# throughput, and error-rate figures the performance report needs.
+#
+# Install with:  python -m pip install -r load-tests/requirements.txt
+locust==2.32.5

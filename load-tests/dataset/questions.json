@@ -1,0 +1,19 @@
+{
+  "schema": "load-question-set/v1",
+  "version": "core-v1",
+  "notes": "Representative chat questions for load tests, drawn from the same in-memory keyword corpus and deterministic backend the quality harness uses so runs are reproducible offline. The mix is retrieval-heavy with a minority of direct-answer, rewrite-triggering, and insufficient-evidence questions so cached/uncached and basic/agentic comparisons are meaningful.",
+  "questions": [
+    {"question": "How much did cache misses raise vector-search p95 latency at 32 concurrent users?", "kind": "retrieval"},
+    {"question": "How many concurrent users triggered the cache-miss latency spike?", "kind": "retrieval"},
+    {"question": "What throughput did vLLM reach in the run #1839 backend comparison?", "kind": "retrieval"},
+    {"question": "What did the run #1840 answer quality evaluation measure?", "kind": "retrieval"},
+    {"question": "What was the hallucination rate across the 200 evaluation questions?", "kind": "retrieval"},
+    {"question": "What did cached retrieval do to p95 latency compared with the uncached path?", "kind": "retrieval"},
+    {"question": "How much faster was cached retrieval than uncached retrieval?", "kind": "retrieval"},
+    {"question": "What can you do?", "kind": "direct"},
+    {"question": "Who are you?", "kind": "direct"},
+    {"question": "Why did the cache p95 regress so badly under load?", "kind": "rewrite"},
+    {"question": "Roughly speaking, how well did the answer quality evaluation actually score overall?", "kind": "rewrite"},
+    {"question": "What is the capital of France?", "kind": "insufficient"}
+  ]
+}
