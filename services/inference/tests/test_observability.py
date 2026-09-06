@@ -27,3 +27,17 @@ def test_generate_echoes_request_id_and_is_counted() -> None:
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == "inference-obs-1"
     assert 'route="/generate"' in body
+
+
+def test_generation_records_duration_and_token_metrics() -> None:
+    with TestClient(app) as client:
+        client.post(
+            "/generate",
+            json={"prompt": "[1] latency — p95 rose to 391 ms", "maxTokens": 64,
+                  "temperature": 0},
+        )
+        body = client.get("/metrics").text
+
+    assert "inference_generation_duration_seconds_count{" in body
+    assert 'inference_tokens_total{backend="deterministic",kind="completion"' in body
+    assert 'inference_tokens_total{backend="deterministic",kind="prompt"' in body

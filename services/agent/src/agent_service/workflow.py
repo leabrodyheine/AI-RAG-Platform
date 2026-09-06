@@ -11,10 +11,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from time import perf_counter_ns
 
+from rag_observability import get_tracer
+
 from agent_service.clients.inference import GeneratedAnswer, InferenceClient
 from agent_service.clients.retrieval import RetrievalClient
 from agent_service.prompts import build_grounded_prompt
 from agent_service.schemas import Citation, TraceStep
+
+_tracer = get_tracer("agent.workflow")
 
 
 class WorkflowState(StrEnum):
@@ -252,7 +256,9 @@ async def run_workflow(
     steps_remaining = config.max_steps
 
     plan_started = perf_counter_ns()
-    decision = decide_retrieval(question)
+    with _tracer.start_as_current_span("agent.plan") as plan_span:
+        decision = decide_retrieval(question)
+        plan_span.set_attribute("agent.retrieval_needed", decision.retrieval_needed)
     trace.append(
         TraceStep(
             label="Plan",
@@ -271,7 +277,9 @@ async def run_workflow(
         return _halt(trace, "step limit reached before retrieval")
 
     retrieve_started = perf_counter_ns()
-    citations = await retrieval_client.search(question, request_id=request_id)
+    with _tracer.start_as_current_span("agent.retrieve") as retrieve_span:
+        citations = await retrieval_client.search(question, request_id=request_id)
+        retrieve_span.set_attribute("agent.result_count", len(citations))
     steps_remaining -= 1
     trace.append(
         TraceStep(
@@ -281,7 +289,10 @@ async def run_workflow(
         )
     )
 
-    assessment = assess_evidence(citations, config)
+    with _tracer.start_as_current_span("agent.assess") as assess_span:
+        assessment = assess_evidence(citations, config)
+        assess_span.set_attribute("agent.evidence_strong", assessment.strong)
+        assess_span.set_attribute("agent.usable_count", len(assessment.usable))
     trace.append(
         TraceStep(label="Assess evidence", detail=assessment.detail, duration_ms=0)
     )
@@ -297,7 +308,11 @@ async def run_workflow(
                 )
             )
             retry_started = perf_counter_ns()
-            retry_citations = await retrieval_client.search(rewritten, request_id=request_id)
+            with _tracer.start_as_current_span("agent.retrieve_after_rewrite") as retry_span:
+                retry_citations = await retrieval_client.search(
+                    rewritten, request_id=request_id
+                )
+                retry_span.set_attribute("agent.result_count", len(retry_citations))
             steps_remaining -= 1
             trace.append(
                 TraceStep(
@@ -330,10 +345,13 @@ async def run_workflow(
 
     usable = assessment.usable
     generate_started = perf_counter_ns()
-    generated = await inference_client.generate(
-        build_grounded_prompt(question, usable),
-        request_id=request_id,
-    )
+    with _tracer.start_as_current_span("agent.generate") as generate_span:
+        generate_span.set_attribute("agent.evidence_count", len(usable))
+        generated = await inference_client.generate(
+            build_grounded_prompt(question, usable),
+            request_id=request_id,
+        )
+        generate_span.set_attribute("agent.completion_tokens", generated.completion_tokens)
     trace.append(
         TraceStep(
             label="Generate",

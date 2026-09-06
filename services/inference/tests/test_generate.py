@@ -14,6 +14,7 @@ client = TestClient(app)
 
 
 class StubBackend:
+    name = "stub"
     model = "stub-model-v1"
 
     def __init__(self) -> None:

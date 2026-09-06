@@ -25,3 +25,13 @@ def test_search_echoes_request_id_and_is_counted() -> None:
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == "retrieval-obs-1"
     assert 'route="/search"' in client.get("/metrics").text
+
+
+def test_in_memory_search_records_cache_and_query_metrics() -> None:
+    client = TestClient(app)
+    client.post("/search", json={"query": "cache latency p95", "topK": 3})
+
+    body = client.get("/metrics").text
+
+    assert 'retrieval_cache_events_total{result="bypass",service="retrieval"}' in body
+    assert 'retrieval_query_duration_seconds_count{path="memory",service="retrieval"}' in body

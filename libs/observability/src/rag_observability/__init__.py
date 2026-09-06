@@ -25,6 +25,11 @@ from rag_observability.http_client import client_event_hooks
 from rag_observability.instrumentation import instrument_app
 from rag_observability.logging import configure_logging
 from rag_observability.metrics import REGISTRY, render_latest
+from rag_observability.recording import (
+    observe_retrieval_query,
+    record_cache_event,
+    record_generation,
+)
 from rag_observability.tracing import (
     configure_tracing,
     current_trace_ids,
@@ -43,6 +48,9 @@ __all__ = [
     "get_tracer",
     "instrument_app",
     "new_request_id",
+    "observe_retrieval_query",
+    "record_cache_event",
+    "record_generation",
     "render_latest",
     "resolve_request_id",
 ]
