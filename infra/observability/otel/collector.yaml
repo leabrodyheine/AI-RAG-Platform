@@ -1,0 +1,33 @@
+# OpenTelemetry Collector for the local Compose stack.
+#
+# Services push spans here over OTLP/HTTP (:4318). Traces are batched and written
+# to the collector's own log so a request can be followed with
+# `docker compose logs -f otel-collector`. Metrics are NOT routed through the
+# collector: each service exposes Prometheus text on /metrics and Prometheus
+# scrapes them directly.
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 2s
+
+exporters:
+  debug:
+    verbosity: normal
+
+service:
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
