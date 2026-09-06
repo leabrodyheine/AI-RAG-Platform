@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import httpx
+from rag_observability import client_event_hooks
 
 from agent_service.config import Settings
 
@@ -43,6 +44,7 @@ class InferenceClient:
             httpx.AsyncClient(
                 base_url=settings.inference_service_url,
                 timeout=settings.inference_request_timeout_seconds,
+                event_hooks=client_event_hooks("agent", "inference"),
             )
         )
 

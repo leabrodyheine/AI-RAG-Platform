@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, Response, status
 from fastapi.responses import JSONResponse
+from rag_observability import current_request_id
 
 from agent_service.clients.inference import (
     InferenceClient,
@@ -38,7 +39,7 @@ async def answer_question(
         Header(alias="X-Request-ID", min_length=1, max_length=128),
     ] = None,
 ) -> ChatResponse | JSONResponse:
-    request_id = caller_request_id or str(uuid4())
+    request_id = caller_request_id or current_request_id() or str(uuid4())
     started_at = perf_counter_ns()
 
     try:

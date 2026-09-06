@@ -21,6 +21,8 @@ from rag_observability.context import (
     new_request_id,
     resolve_request_id,
 )
+from rag_observability.http_client import client_event_hooks
+from rag_observability.instrumentation import instrument_app
 from rag_observability.logging import configure_logging
 from rag_observability.metrics import REGISTRY, render_latest
 from rag_observability.tracing import (
@@ -33,11 +35,13 @@ __all__ = [
     "REGISTRY",
     "REQUEST_ID_HEADER",
     "bind_request_id",
+    "client_event_hooks",
     "configure_logging",
     "configure_tracing",
     "current_request_id",
     "current_trace_ids",
     "get_tracer",
+    "instrument_app",
     "new_request_id",
     "render_latest",
     "resolve_request_id",

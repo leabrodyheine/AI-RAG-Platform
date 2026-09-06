@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from rag_observability import instrument_app
 
 from agent_service.clients.inference import InferenceClient
 from agent_service.clients.retrieval import RetrievalClient
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Agent Service", version="0.1.0", lifespan=lifespan)
 app.include_router(chat_router)
+instrument_app(app, "agent")
 
 
 @app.get("/health", tags=["health"])

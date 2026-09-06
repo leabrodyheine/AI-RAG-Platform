@@ -1,11 +1,11 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from rag_observability import instrument_app
 
 from api_gateway.clients.agent import AgentClient
 from api_gateway.config import Settings, cors_allowed_origins_from_env
@@ -35,21 +35,9 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(health_router)
 
-
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    caller_request_id = request.headers.get("X-Request-ID")
-    request_id = (
-        caller_request_id
-        if caller_request_id and len(caller_request_id) <= 128
-        else str(uuid4())
-    )
-    request.state.request_id = request_id
-
-    response = await call_next(request)
-    if "X-Request-ID" not in response.headers:
-        response.headers["X-Request-ID"] = request_id
-    return response
+# Structured logging, request/trace IDs, inbound + outbound HTTP spans, the
+# http_server_* metrics, and GET /metrics.
+instrument_app(app, "api-gateway")
 
 
 @app.exception_handler(RequestValidationError)

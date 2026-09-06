@@ -58,6 +58,7 @@ def instrument_app(
     ) -> Response:
         request_id = resolve_request_id(request.headers.get(REQUEST_ID_HEADER))
         bind_request_id(request_id)
+        request.state.request_id = request_id
 
         span = trace.get_current_span()
         if span.is_recording():

@@ -3,6 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
+from rag_observability import client_event_hooks
 
 from api_gateway.config import Settings
 
@@ -41,6 +42,7 @@ class AgentClient:
             httpx.AsyncClient(
                 base_url=settings.agent_service_url,
                 timeout=settings.agent_request_timeout_seconds,
+                event_hooks=client_event_hooks("api-gateway", "agent"),
             )
         )
 

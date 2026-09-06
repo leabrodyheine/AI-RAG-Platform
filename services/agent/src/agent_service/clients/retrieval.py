@@ -2,6 +2,7 @@ from uuid import uuid4
 
 import httpx
 from pydantic import ValidationError
+from rag_observability import client_event_hooks
 
 from agent_service.config import Settings
 from agent_service.schemas import Citation
@@ -33,6 +34,7 @@ class RetrievalClient:
             httpx.AsyncClient(
                 base_url=settings.retrieval_service_url,
                 timeout=settings.retrieval_request_timeout_seconds,
+                event_hooks=client_event_hooks("agent", "retrieval"),
             )
         )
 
