@@ -126,8 +126,10 @@ hotspot-bound**. End-to-end latency is spread across four ASGI/httpx hops with n
 single dominant cost, so no one application-level change moves p50 above host
 scheduling noise. The levers that would actually move the number are structural —
 hop count and payload size — not any single handler. The same redundant
-validate/serialize pattern is still present on the agent's `/answer` route and is
-noted as a follow-up.
+validate/serialize pattern was also on the agent's `/answer` route and the same
+change was applied there: the handler builds and validates the `ChatResponse`
+from typed workflow results, then serializes it once instead of returning it for
+FastAPI to reprocess under `response_model`.
 
 ## Limitations
 

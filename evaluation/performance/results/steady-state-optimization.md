@@ -72,6 +72,6 @@ On this CPU-only, single-host stack the chat path is fixed-overhead-bound, not
 hotspot-bound: latency is spread across four ASGI/httpx hops with no single
 dominant cost, so no one application-level change moves end-to-end p50 above
 host-scheduling noise. The redundant validate/serialize was a genuine
-inefficiency worth removing (and the same pattern is still present on the agent
-`/answer` route — a follow-up), but the architectural levers that would actually
+inefficiency worth removing (and the same pattern on the agent `/answer` route
+was given the same treatment), but the architectural levers that would actually
 move this number are hop count and payload size, not any one handler.

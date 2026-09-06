@@ -2,7 +2,7 @@ from time import perf_counter_ns
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, Response, status
+from fastapi import APIRouter, Depends, Header, status
 from fastapi.responses import JSONResponse
 from rag_observability import current_request_id
 
@@ -30,7 +30,6 @@ router = APIRouter(tags=["chat"])
 @router.post("/answer", response_model=ChatResponse)
 async def answer_question(
     payload: ChatRequest,
-    response: Response,
     retrieval_client: Annotated[RetrievalClient, Depends(get_retrieval_client)],
     inference_client: Annotated[InferenceClient, Depends(get_inference_client)],
     workflow_config: Annotated[WorkflowConfig, Depends(get_workflow_config)],
@@ -76,12 +75,19 @@ async def answer_question(
         )
 
     total_duration_ms = (perf_counter_ns() - started_at) // 1_000_000
-    response.headers["X-Request-ID"] = request_id
-    return ChatResponse(
+    answer = ChatResponse(
         content=result.content,
         citations=result.citations,
         trace=result.trace,
         total_duration_ms=total_duration_ms,
+    )
+    # The model is built and validated here from already-typed workflow results.
+    # Serialize it once and return the bytes rather than handing FastAPI the model
+    # to re-validate and re-encode under response_model. This is an internal route;
+    # the public contract is enforced at the gateway.
+    return JSONResponse(
+        content=answer.model_dump(mode="json", by_alias=True),
+        headers={"X-Request-ID": request_id},
     )
 
 
