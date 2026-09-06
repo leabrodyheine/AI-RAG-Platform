@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response, status
+from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -29,7 +29,6 @@ router = APIRouter(tags=["chat"])
 async def create_chat_answer(
     payload: ChatRequest,
     request: Request,
-    response: Response,
     agent_client: Annotated[AgentClient, Depends(get_agent_client)],
     caller_request_id: Annotated[
         str | None,
@@ -40,7 +39,7 @@ async def create_chat_answer(
 
     try:
         result = await agent_client.answer(payload.question, request_id=request_id)
-        answer = ChatResponse.model_validate(result.payload)
+        ChatResponse.model_validate(result.payload)
     except AgentTimeoutError:
         return _error_response(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -56,8 +55,13 @@ async def create_chat_answer(
             request_id=request_id,
         )
 
-    response.headers["X-Request-ID"] = result.request_id
-    return answer
+    # The agent payload is already validated above and already contract-shaped
+    # (camelCase, no extra keys). Forward its bytes rather than rebuilding a model
+    # for FastAPI to validate and serialize a second time.
+    return JSONResponse(
+        content=result.payload,
+        headers={"X-Request-ID": result.request_id},
+    )
 
 
 def _error_response(
