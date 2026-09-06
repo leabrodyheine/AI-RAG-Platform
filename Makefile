@@ -1,8 +1,9 @@
 PYTHON ?= python3
 WEB_DIR := apps/web
 PYTHON_SERVICES := services/api-gateway services/agent services/retrieval services/inference
+SCENARIO ?= steady-state
 
-.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality eval-quality-check clean
+.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality eval-quality-check load-stack load-smoke load-run clean
 
 help:
 	@echo "Targets:"
@@ -12,6 +13,9 @@ help:
 	@echo "  run-web       Start the web development server"
 	@echo "  eval-quality  Run the offline quality evaluation and write its reports"
 	@echo "  eval-quality-check  Run the quality evaluation and fail on a threshold regression"
+	@echo "  load-stack    Start the four services on localhost (Ctrl-C to stop)"
+	@echo "  load-smoke    Start the stack, run the smoke load scenario, tear down"
+	@echo "  load-run      Start the stack, run SCENARIO (default steady-state), tear down"
 	@echo "  clean         Remove local build and test artifacts"
 
 install: install-python install-web
@@ -46,6 +50,15 @@ eval-quality:
 
 eval-quality-check:
 	$(PYTHON) -m evaluation.quality.run --check-thresholds
+
+load-stack:
+	$(PYTHON) scripts/run_local_stack.py
+
+load-smoke:
+	$(PYTHON) scripts/run_local_stack.py --run smoke --check-pass-fail
+
+load-run:
+	$(PYTHON) scripts/run_local_stack.py --run $(SCENARIO)
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name dist \) -prune -exec rm -rf {} +

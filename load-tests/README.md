@@ -25,14 +25,29 @@ python -m pip install -r load-tests/requirements.txt
 
 ## Running
 
-Against the local fallback stack (no Docker, in-memory retrieval, deterministic
-backend) or the Compose stack:
+`scripts/run_local_stack.py` boots the four services on localhost with no Docker
+(in-memory retrieval, deterministic inference) and can run a scenario end to end:
+
+```bash
+make load-smoke                       # start stack, run the smoke scenario, tear down
+make load-run SCENARIO=steady-state   # same, for any scenario
+python scripts/run_local_stack.py     # just hold the stack up (Ctrl-C to stop)
+```
+
+`evaluation.performance.run` is the harness underneath: it reads a scenario
+file, drives the load with Locust embedded in the process, samples `/metrics`
+and host resources, scores the post-warm-up window, and writes a JSON + Markdown
+summary to `results/` (git-ignored). Against an already-running stack:
+
+```bash
+python -m evaluation.performance.run steady-state --host http://localhost:8000
+```
+
+Or drive Locust directly:
 
 ```bash
 locust -f load-tests/locustfile.py --host http://localhost:8000 \
   --headless --users 16 --spawn-rate 4 --run-time 60s
 ```
 
-`evaluation.performance.run` wraps this: it reads a scenario file, runs Locust
-headless, samples `/metrics` and host resources, and writes a summary. See
-`docs/performance-report.md` for method and results.
+See `docs/performance-report.md` for method and results.
