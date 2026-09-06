@@ -13,6 +13,17 @@ REQUEST_ID_HEADER = "X-Request-ID"
 MAX_REQUEST_ID_LENGTH = 128
 
 _request_id: ContextVar[str | None] = ContextVar("rag_request_id", default=None)
+_service: ContextVar[str | None] = ContextVar("rag_service", default=None)
+
+
+def bind_service(service_name: str) -> None:
+    """Record which service is handling the current context (for log fields)."""
+    _service.set(service_name)
+
+
+def current_service() -> str | None:
+    """Return the service bound to the current context, if any."""
+    return _service.get()
 
 
 def new_request_id() -> str:

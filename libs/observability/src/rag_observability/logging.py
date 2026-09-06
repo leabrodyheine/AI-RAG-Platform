@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from rag_observability.context import current_request_id
+from rag_observability.context import current_request_id, current_service
 from rag_observability.tracing import current_trace_ids
 
 _RESERVED = frozenset(
@@ -35,7 +35,7 @@ class JsonLogFormatter(logging.Formatter):
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "service": getattr(record, "service", _service_name),
+            "service": getattr(record, "service", None) or current_service() or _service_name,
             "message": record.getMessage(),
         }
 

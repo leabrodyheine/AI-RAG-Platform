@@ -2,7 +2,7 @@ import logging
 
 import pytest
 from rag_observability import logging as obs_logging
-from rag_observability.context import bind_request_id
+from rag_observability.context import bind_request_id, bind_service
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +27,9 @@ def _restore_root_logger():
 
 
 @pytest.fixture(autouse=True)
-def _clear_request_id():
+def _clear_context():
     bind_request_id(None)  # type: ignore[arg-type]
+    bind_service(None)  # type: ignore[arg-type]
     yield
     bind_request_id(None)  # type: ignore[arg-type]
+    bind_service(None)  # type: ignore[arg-type]

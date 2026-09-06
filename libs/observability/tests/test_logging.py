@@ -2,7 +2,7 @@ import io
 import json
 import logging
 
-from rag_observability.context import bind_request_id
+from rag_observability.context import bind_request_id, bind_service
 from rag_observability.logging import JsonLogFormatter, configure_logging
 
 
@@ -39,6 +39,15 @@ def test_formatter_includes_request_id_when_bound() -> None:
     payload = json.loads(JsonLogFormatter().format(_record()))
 
     assert payload["request_id"] == "req-logging-1"
+
+
+def test_bound_service_wins_over_the_module_default() -> None:
+    configure_logging("module-default")
+    bind_service("retrieval")
+
+    payload = json.loads(JsonLogFormatter().format(_record()))
+
+    assert payload["service"] == "retrieval"
 
 
 def test_formatter_merges_extra_fields_and_stays_serialisable() -> None:

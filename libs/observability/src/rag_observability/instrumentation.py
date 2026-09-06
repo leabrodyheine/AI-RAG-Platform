@@ -25,6 +25,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from rag_observability.context import (
     REQUEST_ID_HEADER,
     bind_request_id,
+    bind_service,
     resolve_request_id,
 )
 from rag_observability.logging import configure_logging
@@ -58,6 +59,7 @@ def instrument_app(
     ) -> Response:
         request_id = resolve_request_id(request.headers.get(REQUEST_ID_HEADER))
         bind_request_id(request_id)
+        bind_service(service_name)
         request.state.request_id = request_id
 
         span = trace.get_current_span()
