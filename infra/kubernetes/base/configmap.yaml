@@ -1,0 +1,37 @@
+# Non-secret configuration shared by the Python services. Values that vary by
+# environment (image tags, replica counts, GPU backend) are set in overlays;
+# credentials live in the Secret, never here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-platform-config
+data:
+  # Internal service URLs. Service names match the Service objects in this
+  # namespace, so the same names the Compose stack uses resolve here too.
+  AGENT_SERVICE_URL: "http://agent:8001"
+  RETRIEVAL_SERVICE_URL: "http://retrieval:8002"
+  INFERENCE_SERVICE_URL: "http://inference:8003"
+
+  AGENT_REQUEST_TIMEOUT_SECONDS: "10"
+  RETRIEVAL_REQUEST_TIMEOUT_SECONDS: "5"
+  INFERENCE_REQUEST_TIMEOUT_SECONDS: "15"
+
+  # The gateway is the only service browsers call directly.
+  CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
+
+  # Retrieval: offline-friendly defaults. feature-hash needs no model download,
+  # so a kind/Minikube pod starts without egress. Swap to fastembed (plus the
+  # embedding-cache volume and egress) for production-quality vectors.
+  EMBEDDING_PROVIDER: "feature-hash"
+  EMBEDDING_MODEL: "feature-hash"
+  EMBEDDING_MODEL_VERSION: "feature-hash-v1"
+  RETRIEVAL_CACHE_TTL_SECONDS: "60"
+
+  # Inference: CPU-only deterministic backend by default. The GPU overlay
+  # replaces these with vllm/triton and a model name.
+  INFERENCE_BACKEND: "deterministic"
+  INFERENCE_MODEL: "deterministic-grounded-v1"
+
+  # Tracing off by default so the base stack needs no collector. An overlay can
+  # point this at an OTLP endpoint.
+  OTEL_SDK_DISABLED: "true"
