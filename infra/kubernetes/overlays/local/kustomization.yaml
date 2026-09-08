@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Inherits namespace and labels from ../../base. The base is already sized for a
+# laptop kind cluster; this overlay only drops the multi-replica services to a
+# single pod so the whole stack fits comfortably on one node. The base Ingress
+# already targets rag-platform.local on the nginx class, which matches
+# kind-cluster.yaml, so it needs no patch.
+resources:
+  - ../../base
+
+replicas:
+  - name: api-gateway
+    count: 1
+  - name: web
+    count: 1
