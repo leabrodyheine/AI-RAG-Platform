@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Inherits namespace (ai-rag-platform) and the base labels from ../../base.
+resources:
+  - ../../base
+  - vllm-config.yaml
+  - vllm.yaml
+
+# Move inference from the deterministic CPU backend to the vLLM server above.
+patches:
+  - path: inference-patch.yaml
+    target:
+      kind: Deployment
+      name: inference

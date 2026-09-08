@@ -1,0 +1,20 @@
+# Pinned vLLM engine configuration, mounted at /config in the vllm pod.
+#
+# This mirrors runtimes/vllm/config/llama-3.1-8b-instruct.yaml. It is duplicated
+# here rather than referenced across the tree so `kubectl kustomize` builds this
+# overlay without relaxing its load restrictor. Keep the two files in sync; the
+# runtimes/ copy is the source of truth and carries the rationale for each key.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vllm-engine-config
+data:
+  llama-3.1-8b-instruct.yaml: |
+    model: meta-llama/Llama-3.1-8B-Instruct
+    served-model-name: meta-llama/Llama-3.1-8B-Instruct
+    dtype: bfloat16
+    seed: 0
+    max-model-len: 8192
+    gpu-memory-utilization: 0.90
+    tensor-parallel-size: 1
+    disable-log-requests: true

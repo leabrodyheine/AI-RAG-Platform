@@ -1,0 +1,121 @@
+# GPU-scheduled model server. This is the only pod in the platform that needs a
+# GPU: the Python inference service stays on CPU and calls this over HTTP.
+#
+# Scheduling onto GPU hardware relies on three things a cluster admin sets up:
+#   - the NVIDIA device plugin, which advertises the nvidia.com/gpu resource;
+#   - a "nvidia" RuntimeClass wired to the NVIDIA container runtime;
+#   - GPU nodes labelled `gpu=true` and tainted `nvidia.com/gpu=present:NoSchedule`
+#     so only workloads that tolerate the taint land there.
+# Adjust the nodeSelector / toleration / runtimeClassName below to match the
+# cluster's conventions if they differ.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  labels:
+    app.kubernetes.io/name: vllm
+    app.kubernetes.io/component: model-server
+    app.kubernetes.io/part-of: ai-rag-platform
+spec:
+  replicas: 1
+  # One GPU, one process holding the weights. Recreate avoids two pods briefly
+  # contending for the same GPU during a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm
+        app.kubernetes.io/component: model-server
+        app.kubernetes.io/part-of: ai-rag-platform
+    spec:
+      runtimeClassName: nvidia
+      nodeSelector:
+        gpu: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Equal
+          value: present
+          effect: NoSchedule
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.6.3.post1
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--config"
+            - "/config/llama-3.1-8b-instruct.yaml"
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            # Accepted Llama 3.1 license. Create this Secret out of band; it is
+            # a real credential and is not committed:
+            #   kubectl -n ai-rag-platform create secret generic vllm-secrets \
+            #     --from-literal=hugging-face-hub-token=hf_xxx
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vllm-secrets
+                  key: hugging-face-hub-token
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            # Weight download + engine warm-up on a cold node is minutes, not
+            # seconds: 60 * 30s = 30 min before the pod is declared failed.
+            periodSeconds: 30
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: "2"
+              memory: 16Gi
+              nvidia.com/gpu: 1
+            limits:
+              # GPU count must match between requests and limits; it is not
+              # overcommittable. Memory is sized for an 8B model in bf16 on a
+              # 24 GB card plus the KV cache and CUDA context.
+              cpu: "8"
+              memory: 24Gi
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - name: engine-config
+              mountPath: /config
+              readOnly: true
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+      volumes:
+        - name: engine-config
+          configMap:
+            name: vllm-engine-config
+        # Weights re-download if this pod moves nodes. Swap for a PVC
+        # (ReadWriteMany, or ReadWriteOnce pinned with the nodeSelector) to keep
+        # the ~20 GB cache across restarts.
+        - name: hf-cache
+          emptyDir:
+            sizeLimit: 30Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+spec:
+  selector:
+    app.kubernetes.io/name: vllm
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

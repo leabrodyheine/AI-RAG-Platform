@@ -1,0 +1,33 @@
+# Point the inference service at the in-cluster vLLM server. Switching backends
+# is configuration only -- the same ai-rag-platform/inference image is used.
+#
+# The env list is replaced wholesale ($patch: replace) rather than merged: the
+# base pulls INFERENCE_BACKEND / INFERENCE_MODEL from the ConfigMap via
+# valueFrom, and a strategic-merge of a literal `value` onto those would leave
+# both fields set. Everything the container needs is therefore restated here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  template:
+    spec:
+      containers:
+        - name: inference
+          env:
+            - $patch: replace
+            - name: INFERENCE_BACKEND
+              value: "vllm"
+            - name: INFERENCE_MODEL
+              value: "meta-llama/Llama-3.1-8B-Instruct"
+            - name: VLLM_BASE_URL
+              value: "http://vllm:8000"
+            - name: INFERENCE_BACKEND_TIMEOUT_SECONDS
+              value: "60"
+            - name: INFERENCE_STOP_SEQUENCES
+              value: "<|eot_id|>"
+            - name: OTEL_SDK_DISABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: rag-platform-config
+                  key: OTEL_SDK_DISABLED
