@@ -8,6 +8,7 @@ testpaths = [
   "services/inference/tests",
   "tests/contracts",
   "tests/integration",
+  "tests/end-to-end",
   "evaluation/quality/tests",
   "evaluation/performance/tests",
   "scripts/tests",
