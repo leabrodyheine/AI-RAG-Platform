@@ -17,9 +17,15 @@ Environment-independent manifests for the platform, assembled by
 | `agent.yaml` | Deployment + Service | Orchestrates retrieval + inference. |
 | `api-gateway.yaml` | Deployment + Service | Public entrypoint; 2 replicas. |
 | `web.yaml` | Deployment + Service | Static SPA on nginx; reaches the gateway through the Ingress. |
+| `ingress.yaml` | Ingress `rag-platform` | The only external surface: `/` → `web`, `/api/*` → `api-gateway` (prefix stripped). Every other Service is ClusterIP with no rule. |
 
 Service names match the Compose service names, so the internal URLs
 (`http://agent:8001`, `http://retrieval:8002`, …) resolve unchanged.
+
+Only `web` and `api-gateway` are exposed. `agent`, `retrieval`, `inference`,
+`postgres`, and `redis` have ClusterIP Services and no Ingress rule, so they are
+reachable only from inside the namespace. The Ingress `host` and
+`ingressClassName` are cluster-specific and are patched by overlays.
 
 ## Probes and resources
 

@@ -1,0 +1,40 @@
+# The only externally reachable surface. Everything else -- agent, retrieval,
+# inference, postgres, redis -- has a ClusterIP Service and no Ingress rule, so
+# it is reachable only from inside the namespace.
+#
+# Two paths on one host:
+#   /       -> web        (the SPA)
+#   /api/*  -> api-gateway (rewritten to strip the /api prefix, so the gateway
+#                           still sees /chat, /health, ... at its root)
+#
+# The web image must be built with VITE_API_BASE_URL pointing at "<host>/api"
+# so the browser's calls land on the second rule. Host and ingressClassName are
+# cluster-specific; overlays patch them (the local overlay sets rag-platform.local
+# and the kind nginx class).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rag-platform
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: rag-platform.local
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80

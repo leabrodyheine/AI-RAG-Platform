@@ -17,3 +17,4 @@ resources:
   - agent.yaml
   - api-gateway.yaml
   - web.yaml
+  - ingress.yaml
