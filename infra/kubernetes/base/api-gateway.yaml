@@ -6,7 +6,8 @@ metadata:
     app.kubernetes.io/name: api-gateway
     app.kubernetes.io/component: gateway
 spec:
-  replicas: 2
+  # replicas is intentionally unset: the HorizontalPodAutoscaler in hpa.yaml
+  # owns the replica count (min 2).
   selector:
     matchLabels:
       app.kubernetes.io/name: api-gateway

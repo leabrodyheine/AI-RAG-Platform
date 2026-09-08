@@ -18,3 +18,4 @@ resources:
   - api-gateway.yaml
   - web.yaml
   - ingress.yaml
+  - hpa.yaml

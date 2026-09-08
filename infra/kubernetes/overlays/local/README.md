@@ -1,8 +1,8 @@
 # Local overlay
 
 Runs the base stack on a single-node [kind](https://kind.sigs.k8s.io) cluster.
-It keeps the base as-is except for dropping `api-gateway` and `web` to one
-replica each.
+It keeps the base as-is except for dropping `web` to one replica and lowering
+the `api-gateway` autoscaler floor from 2 pods to 1.
 
 ## Bring it up
 
@@ -33,6 +33,23 @@ kubectl -n ai-rag-platform wait --for=condition=Available deploy --all --timeout
 
 Add `127.0.0.1 rag-platform.local` to `/etc/hosts`, then open
 <http://rag-platform.local>. The API is at `http://rag-platform.local/api`.
+
+## Autoscaling
+
+The base ships `HorizontalPodAutoscaler`s for `api-gateway`, `agent`, and
+`retrieval` (CPU target). They are applied here too, but a stock kind cluster
+has no metrics API, so they report `<unknown>` targets and never scale — every
+Deployment just runs at its `minReplicas`. To exercise them, install
+metrics-server with the kubelet-TLS workaround kind needs:
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl -n kube-system patch deployment metrics-server --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl -n kube-system rollout status deployment metrics-server
+```
+
+Then `kubectl -n ai-rag-platform get hpa` shows live CPU percentages.
 
 ## Data-loss expectations
 

@@ -6,7 +6,8 @@ metadata:
     app.kubernetes.io/name: agent
     app.kubernetes.io/component: agent
 spec:
-  replicas: 1
+  # replicas is intentionally unset: the HorizontalPodAutoscaler in hpa.yaml
+  # owns the replica count (min 1).
   selector:
     matchLabels:
       app.kubernetes.io/name: agent

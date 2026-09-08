@@ -2,15 +2,29 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 # Inherits namespace and labels from ../../base. The base is already sized for a
-# laptop kind cluster; this overlay only drops the multi-replica services to a
-# single pod so the whole stack fits comfortably on one node. The base Ingress
-# already targets rag-platform.local on the nginx class, which matches
-# kind-cluster.yaml, so it needs no patch.
+# laptop kind cluster; this overlay only trims things for a single node:
+#   - web drops to one replica
+#   - the api-gateway HPA drops its floor from 2 to 1
+# agent and retrieval already floor at 1. The base Ingress already targets
+# rag-platform.local on the nginx class, which matches kind-cluster.yaml, so it
+# needs no patch.
+#
+# HPAs stay in the build but do nothing until metrics-server is installed
+# (see README.md); without it every target just sits at minReplicas.
 resources:
   - ../../base
 
 replicas:
-  - name: api-gateway
-    count: 1
   - name: web
     count: 1
+
+patches:
+  - target:
+      group: autoscaling
+      version: v2
+      kind: HorizontalPodAutoscaler
+      name: api-gateway
+    patch: |
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
