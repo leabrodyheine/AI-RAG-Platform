@@ -3,7 +3,7 @@ WEB_DIR := apps/web
 PYTHON_SERVICES := services/api-gateway services/agent services/retrieval services/inference
 SCENARIO ?= steady-state
 
-.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality eval-quality-check load-stack load-smoke load-run clean
+.PHONY: help install install-python install-web test test-python test-web lint lint-python lint-web run-web eval-quality eval-quality-check load-stack load-smoke load-run k8s-validate k8s-smoke clean
 
 help:
 	@echo "Targets:"
@@ -16,6 +16,8 @@ help:
 	@echo "  load-stack    Start the four services on localhost (Ctrl-C to stop)"
 	@echo "  load-smoke    Start the stack, run the smoke load scenario, tear down"
 	@echo "  load-run      Start the stack, run SCENARIO (default steady-state), tear down"
+	@echo "  k8s-validate  Render every kustomize target and check manifest invariants (no cluster)"
+	@echo "  k8s-smoke     Smoke-check a running deployment (needs a kubectl context; set HOST=...)"
 	@echo "  clean         Remove local build and test artifacts"
 
 install: install-python install-web
@@ -59,6 +61,12 @@ load-smoke:
 
 load-run:
 	$(PYTHON) scripts/run_local_stack.py --run $(SCENARIO)
+
+k8s-validate:
+	$(PYTHON) scripts/validate_k8s_manifests.py
+
+k8s-smoke:
+	$(PYTHON) scripts/smoke_k8s_deployment.py $(if $(HOST),--host $(HOST),)
 
 clean:
 	find . -type d \( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name dist \) -prune -exec rm -rf {} +

@@ -64,3 +64,11 @@ stateful. The HPAs need `metrics-server` in the cluster — without it they sit 
 Images are referenced as `ai-rag-platform/<service>:latest` with
 `imagePullPolicy: IfNotPresent`; build them and load them into the cluster
 (`kind load docker-image …`) before applying.
+
+## Validation
+
+`make k8s-validate` (`scripts/validate_k8s_manifests.py`) renders this base and
+every overlay and checks the invariants above offline — namespace, probes,
+resource requests, replica-count ownership, and that Services / the Ingress /
+HPAs reference objects that exist. `scripts/smoke_k8s_deployment.py` is the
+post-apply check against a live cluster.
