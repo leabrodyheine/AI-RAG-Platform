@@ -1,0 +1,8 @@
+# Runtime dependencies for the standalone scripts in this directory.
+# The four services install their own deps from their pyproject files; these
+# cover the scripts that are not part of any service package.
+#
+#   validate_k8s_manifests.py -> PyYAML
+#   smoke_k8s_deployment.py   -> httpx
+PyYAML>=6,<7
+httpx>=0.27,<1
