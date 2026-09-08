@@ -1,7 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Inherits namespace (ai-rag-platform) and the base labels from ../../base.
+# namespace/commonLabels are per-kustomization: the base sets them for its own
+# resources, but this overlay must repeat them so the vLLM objects it adds
+# (vllm.yaml, vllm-config.yaml) also land in the namespace and carry the
+# part-of label. Without this the vllm Service resolves as `vllm.default`, not
+# `vllm.ai-rag-platform`, and the inference pod cannot reach it.
+namespace: ai-rag-platform
+
+commonLabels:
+  app.kubernetes.io/part-of: ai-rag-platform
+
 resources:
   - ../../base
   - vllm-config.yaml
