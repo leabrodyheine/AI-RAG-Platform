@@ -311,6 +311,20 @@ Summary of what the telemetry showed on the CPU-only single-host stack:
 
 All three run without a GPU, a model download, or a live cluster.
 
+### Clean-clone verification
+
+Last run from a fresh `git clone` on macOS (Python 3.11.9, Node 22, no GPU, no
+database), following the [Quickstart](#quickstart) commands exactly:
+
+| Step | Result |
+| --- | --- |
+| `make install` | editable installs for the four services and `libs/observability`, `npm install` for the web client — exit 0 |
+| `make lint` | `ruff` clean, `tsc` clean — exit 0 |
+| `make test` | Python: **476 passed, 1 skipped** (the host-sampling telemetry test skips without the optional `psutil` load-test extra); web: **10 passed** (3 vitest files); 2 pre-existing unrelated deprecation warnings — exit 0 |
+
+With `pip install -r load-tests/requirements.txt` also applied, the Python suite
+is **477 passed**.
+
 ## Repository layout
 
 | Path | Responsibility |
