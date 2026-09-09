@@ -1,3 +1,5 @@
+import pytest
+
 from evaluation.performance.telemetry import (
     TelemetryRecorder,
     parse_metrics_text,
@@ -88,6 +90,7 @@ def test_summary_reports_no_gpu_and_no_host_without_samples() -> None:
 
 
 def test_collect_host_records_cpu_and_memory() -> None:
+    pytest.importorskip("psutil", reason="psutil is a load-tests/requirements.txt extra")
     recorder = TelemetryRecorder(endpoints=[])
     recorder.start()
     recorder.stop()

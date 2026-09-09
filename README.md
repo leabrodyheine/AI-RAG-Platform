@@ -29,7 +29,7 @@ python3 -m venv .venv && source .venv/bin/activate
 make install          # editable installs for the four services + web deps
 
 make lint             # ruff + tsc
-make test             # Python pytest (477 tests) + web vitest
+make test             # Python pytest (476 pass, 1 skipped) + web vitest
 ```
 
 `make test` needs no GPU, no model download, and no running database: the
