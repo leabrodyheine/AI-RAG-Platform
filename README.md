@@ -325,6 +325,9 @@ database), following the [Quickstart](#quickstart) commands exactly:
 With `pip install -r load-tests/requirements.txt` also applied, the Python suite
 is **477 passed**.
 
+[`docs/acceptance.md`](docs/acceptance.md) maps every final-acceptance criterion
+to the code, configuration, and check that satisfies it.
+
 ## Repository layout
 
 | Path | Responsibility |
@@ -338,7 +341,7 @@ is **477 passed**.
 | `contracts/` | Versioned OpenAPI schemas exchanged across service boundaries. |
 | `infra/` | Docker Compose, Kubernetes (Kustomize), and observability configuration. |
 | `tests/` | Cross-service contract, integration, and end-to-end tests. |
-| `docs/` | ADRs, diagrams, operations runbooks, and the performance report. |
+| `docs/` | ADRs, diagrams, operations runbooks, the performance report, and the acceptance record. |
 
 Each service owns its dependencies, unit tests, and Dockerfile, and talks to the
 others only over the contracts in `contracts/` — never by importing their code.
