@@ -84,10 +84,6 @@ $$
 """
 
 
-CREATE_CHUNKS_TABLE_SQL = create_chunks_table_sql(
-    FeatureHashEmbeddingProvider.dimensions
-)
-
 ADD_EMBEDDING_MODEL_COLUMN_SQL = """
 ALTER TABLE retrieval_chunks
 ADD COLUMN IF NOT EXISTS embedding_model TEXT

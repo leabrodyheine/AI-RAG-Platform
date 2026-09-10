@@ -14,8 +14,6 @@ from rag_observability.metrics import (
     retrieval_query_duration_seconds,
 )
 
-CACHE_RESULTS = ("hit", "miss", "bypass")
-
 
 def record_cache_event(service: str, result: str) -> None:
     """Count one retrieval-cache outcome (``hit``, ``miss`` or ``bypass``)."""

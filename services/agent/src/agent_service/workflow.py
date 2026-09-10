@@ -8,7 +8,6 @@ and timing is recorded as a trace step; no hidden reasoning is exposed.
 
 import re
 from dataclasses import dataclass, field
-from enum import StrEnum
 from time import perf_counter_ns
 
 from rag_observability import get_tracer
@@ -19,15 +18,6 @@ from agent_service.prompts import build_grounded_prompt
 from agent_service.schemas import Citation, TraceStep
 
 _tracer = get_tracer("agent.workflow")
-
-
-class WorkflowState(StrEnum):
-    PLAN = "plan"
-    RETRIEVE = "retrieve"
-    ASSESS = "assess"
-    REWRITE = "rewrite"
-    GENERATE = "generate"
-    DONE = "done"
 
 
 @dataclass(frozen=True)
