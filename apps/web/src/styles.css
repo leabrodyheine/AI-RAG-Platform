@@ -398,6 +398,10 @@ textarea:focus-visible {
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
+
 .composer-area { padding: 13px 16px 15px; border-top: 1px solid var(--line-soft); background: #fbfcfd; }
 .suggestion-row { display: flex; gap: 6px; margin-bottom: 9px; overflow-x: auto; }
 
