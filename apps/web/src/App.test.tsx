@@ -24,10 +24,22 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getByRole("heading", { name: "Evaluation lab" })).toBeInTheDocument();
   expect(screen.queryByText("#1838")).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "View evidence" }));
+  const evidenceButton = screen.getByRole("button", { name: "View evidence" });
+  expect(evidenceButton).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(evidenceButton);
+  expect(screen.getByRole("button", { name: "Hide evidence" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   expect(screen.getByText("Why this recommendation?")).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "View all runs" }));
+  const runsButton = screen.getByRole("button", { name: "View all runs" });
+  expect(runsButton).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(runsButton);
+  expect(screen.getByRole("button", { name: "Show recent" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
   expect(screen.getByText("#1838")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Monitoring" }));

@@ -111,7 +111,11 @@ export function EvaluationWorkspace() {
             <strong>Recommendation: promote with a latency guardrail</strong>
             <p>The candidate improves every quality metric, but p95 is 20.6% slower. Promote after enabling the retrieval cache policy tested in run #1841.</p>
           </div>
-          <button onClick={() => setShowEvidence((current) => !current)} type="button">
+          <button
+            aria-expanded={showEvidence}
+            onClick={() => setShowEvidence((current) => !current)}
+            type="button"
+          >
             {showEvidence ? "Hide evidence" : "View evidence"}
           </button>
         </div>
@@ -129,7 +133,12 @@ export function EvaluationWorkspace() {
             <span className="section-label">History</span>
             <h2>Recent runs</h2>
           </div>
-          <button className="text-button" onClick={() => setShowAllRuns((current) => !current)} type="button">
+          <button
+            aria-expanded={showAllRuns}
+            className="text-button"
+            onClick={() => setShowAllRuns((current) => !current)}
+            type="button"
+          >
             {showAllRuns ? "Show recent" : "View all runs"}
           </button>
         </div>
