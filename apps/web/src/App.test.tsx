@@ -25,6 +25,7 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.queryByText("#1838")).not.toBeInTheDocument();
 
   const evidenceButton = screen.getByRole("button", { name: "View evidence" });
+  expect(evidenceButton).toHaveAttribute("aria-controls", "evaluation-evidence");
   expect(evidenceButton).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(evidenceButton);
   expect(screen.getByRole("button", { name: "Hide evidence" })).toHaveAttribute(
@@ -34,6 +35,7 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getByText("Why this recommendation?")).toBeInTheDocument();
 
   const runsButton = screen.getByRole("button", { name: "View all runs" });
+  expect(runsButton).toHaveAttribute("aria-controls", "recent-evaluation-runs");
   expect(runsButton).toHaveAttribute("aria-expanded", "false");
   fireEvent.click(runsButton);
   expect(screen.getByRole("button", { name: "Show recent" })).toHaveAttribute(

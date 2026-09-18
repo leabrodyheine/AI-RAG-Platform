@@ -112,6 +112,7 @@ export function EvaluationWorkspace() {
             <p>The candidate improves every quality metric, but p95 is 20.6% slower. Promote after enabling the retrieval cache policy tested in run #1841.</p>
           </div>
           <button
+            aria-controls="evaluation-evidence"
             aria-expanded={showEvidence}
             onClick={() => setShowEvidence((current) => !current)}
             type="button"
@@ -119,12 +120,10 @@ export function EvaluationWorkspace() {
             {showEvidence ? "Hide evidence" : "View evidence"}
           </button>
         </div>
-        {showEvidence && (
-          <div className="evaluation-evidence">
-            <strong>Why this recommendation?</strong>
-            <p>120 of 124 cases pass the quality gate. All four review cases exceed the 1,000 ms latency target and share a retrieval cache miss, while correctness remains above the 85% promotion threshold.</p>
-          </div>
-        )}
+        <div className="evaluation-evidence" hidden={!showEvidence} id="evaluation-evidence">
+          <strong>Why this recommendation?</strong>
+          <p>120 of 124 cases pass the quality gate. All four review cases exceed the 1,000 ms latency target and share a retrieval cache miss, while correctness remains above the 85% promotion threshold.</p>
+        </div>
       </section>
 
       <section className="runs-card">
@@ -134,6 +133,7 @@ export function EvaluationWorkspace() {
             <h2>Recent runs</h2>
           </div>
           <button
+            aria-controls="recent-evaluation-runs"
             aria-expanded={showAllRuns}
             className="text-button"
             onClick={() => setShowAllRuns((current) => !current)}
@@ -142,7 +142,7 @@ export function EvaluationWorkspace() {
             {showAllRuns ? "Show recent" : "View all runs"}
           </button>
         </div>
-        <div className="runs-table" role="table" aria-label="Recent evaluation runs">
+        <div id="recent-evaluation-runs" className="runs-table" role="table" aria-label="Recent evaluation runs">
           {recentRuns.slice(0, showAllRuns ? recentRuns.length : 3).map((run) => (
             <div className="run-row" role="row" key={run.id}>
               <code>{run.id}</code>
