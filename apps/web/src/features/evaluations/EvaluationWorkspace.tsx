@@ -143,15 +143,22 @@ export function EvaluationWorkspace() {
           </button>
         </div>
         <div id="recent-evaluation-runs" className="runs-table" role="table" aria-label="Recent evaluation runs">
+          <div className="sr-only" role="row">
+            <span role="columnheader">Run</span>
+            <span role="columnheader">Evaluation</span>
+            <span role="columnheader">Score</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Time</span>
+          </div>
           {recentRuns.slice(0, showAllRuns ? recentRuns.length : 3).map((run) => (
             <div className="run-row" role="row" key={run.id}>
-              <code>{run.id}</code>
-              <span><strong>{run.name}</strong><small>{run.dataset}</small></span>
-              <strong>{run.score}</strong>
-              <span className={run.status === "Passed" ? "run-status run-status--passed" : "run-status run-status--review"}>
+              <code role="cell">{run.id}</code>
+              <span role="cell"><strong>{run.name}</strong><small>{run.dataset}</small></span>
+              <strong role="cell">{run.score}</strong>
+              <span role="cell" className={run.status === "Passed" ? "run-status run-status--passed" : "run-status run-status--review"}>
                 {run.status === "Passed" ? <Check size={12} /> : <CircleAlert size={12} />}{run.status}
               </span>
-              <small><Clock3 size={12} />{run.time}</small>
+              <small role="cell"><Clock3 size={12} />{run.time}</small>
             </div>
           ))}
         </div>

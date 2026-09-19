@@ -23,6 +23,8 @@ test("moves between evaluation and monitoring workspaces", () => {
   fireEvent.click(screen.getByRole("button", { name: "Evaluations" }));
   expect(screen.getByRole("heading", { name: "Evaluation lab" })).toBeInTheDocument();
   expect(screen.queryByText("#1838")).not.toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader")).toHaveLength(5);
+  expect(screen.getAllByRole("cell")).toHaveLength(15);
 
   const evidenceButton = screen.getByRole("button", { name: "View evidence" });
   expect(evidenceButton).toHaveAttribute("aria-controls", "evaluation-evidence");
