@@ -50,7 +50,7 @@ export function MonitoringWorkspace() {
           <p>Follow request health from the gateway through retrieval and GPU inference.</p>
         </div>
         <div className="header-actions">
-          <div className="segmented-control" aria-label="Monitoring time range">
+          <div className="segmented-control" aria-label="Monitoring time range" role="group">
             {["15m", "1h", "6h", "24h"].map((range) => (
               <button aria-pressed={timeRange === range} key={range} onClick={() => setTimeRange(range)} type="button">{range}</button>
             ))}
@@ -123,11 +123,17 @@ export function MonitoringWorkspace() {
             <div><span className="section-label">OpenTelemetry</span><h2>Recent traces</h2></div>
             <span className="muted-meta">4 sampled traces</span>
           </div>
-          <div className="trace-table">
+          <div className="trace-table" role="table" aria-label="Recent traces">
+            <div className="sr-only" role="row">
+              <span role="columnheader">Trace</span>
+              <span role="columnheader">Route</span>
+              <span role="columnheader">Spans</span>
+              <span role="columnheader">Duration</span>
+            </div>
             {traces.map((trace) => (
-              <div className="trace-row" key={trace.id}>
-                <code>{trace.id}</code><strong>{trace.route}</strong><span>{trace.spans} spans</span>
-                <span className={trace.status === "slow" ? "trace-duration trace-duration--slow" : "trace-duration"}>{trace.duration}</span>
+              <div className="trace-row" role="row" key={trace.id}>
+                <code role="cell">{trace.id}</code><strong role="cell">{trace.route}</strong><span role="cell">{trace.spans} spans</span>
+                <span role="cell" className={trace.status === "slow" ? "trace-duration trace-duration--slow" : "trace-duration"}>{trace.duration}</span>
               </div>
             ))}
           </div>

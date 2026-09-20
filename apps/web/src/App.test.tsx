@@ -48,6 +48,10 @@ test("moves between evaluation and monitoring workspaces", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Monitoring" }));
   expect(screen.getByRole("heading", { name: "System monitoring" })).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "Monitoring time range" })).toBeInTheDocument();
+  expect(screen.getByRole("table", { name: "Recent traces" })).toBeInTheDocument();
+  expect(screen.getAllByRole("columnheader")).toHaveLength(4);
+  expect(screen.getAllByRole("cell")).toHaveLength(16);
 
   fireEvent.click(screen.getByRole("button", { name: "6h" }));
   expect(screen.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
