@@ -75,7 +75,7 @@ export function AppShell({ activeSection, children, onSectionChange }: AppShellP
         </div>
       </aside>
 
-      <div className="app-shell__content">{children}</div>
+      <main className="app-shell__content">{children}</main>
     </div>
   );
 }
