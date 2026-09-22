@@ -85,19 +85,19 @@ export function EvaluationWorkspace() {
           </label>
         </div>
 
-        <div className="comparison-head">
-          <span>Metric</span>
-          <span><i className="comparison-dot comparison-dot--baseline" /> Basic RAG <small>Baseline</small></span>
-          <span><i className="comparison-dot comparison-dot--candidate" /> Agentic RAG <small>Candidate</small></span>
-          <span>Change</span>
-        </div>
-        <div className="comparison-table">
+        <div className="comparison-table" role="table" aria-label="Evaluation comparison">
+          <div className="comparison-head" role="row">
+            <span role="columnheader">Metric</span>
+            <span role="columnheader"><i className="comparison-dot comparison-dot--baseline" /> Basic RAG <small>Baseline</small></span>
+            <span role="columnheader"><i className="comparison-dot comparison-dot--candidate" /> Agentic RAG <small>Candidate</small></span>
+            <span role="columnheader">Change</span>
+          </div>
           {metrics.map((metric) => (
-            <div className="comparison-row" key={metric.label}>
-              <strong>{metric.label}</strong>
-              <span>{metric.baseline}</span>
-              <span>{metric.candidate}</span>
-              <span className={metric.positive ? "delta delta--positive" : "delta delta--negative"}>
+            <div className="comparison-row" role="row" key={metric.label}>
+              <strong role="cell">{metric.label}</strong>
+              <span role="cell">{metric.baseline}</span>
+              <span role="cell">{metric.candidate}</span>
+              <span role="cell" className={metric.positive ? "delta delta--positive" : "delta delta--negative"}>
                 {metric.positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                 {metric.delta}
               </span>
