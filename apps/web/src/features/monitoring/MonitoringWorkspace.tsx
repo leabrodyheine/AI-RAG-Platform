@@ -28,7 +28,7 @@ const services = [
 const traces = [
   { id: "7f3a91", route: "POST /chat", duration: "849 ms", spans: 14, status: "ok" },
   { id: "a8240e", route: "POST /chat", duration: "1.21 s", spans: 17, status: "slow" },
-  { id: "b9174c", route: "POST /retrieve", duration: "104 ms", spans: 6, status: "ok" },
+  { id: "b9174c", route: "POST /search", duration: "104 ms", spans: 6, status: "ok" },
   { id: "c18dd2", route: "POST /chat", duration: "782 ms", spans: 13, status: "ok" },
 ];
 

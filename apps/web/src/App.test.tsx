@@ -57,6 +57,8 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getByRole("table", { name: "Recent traces" })).toBeInTheDocument();
   expect(screen.getAllByRole("columnheader")).toHaveLength(4);
   expect(screen.getAllByRole("cell")).toHaveLength(16);
+  expect(screen.getByText("POST /search")).toBeInTheDocument();
+  expect(screen.queryByText("POST /retrieve")).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "6h" }));
   expect(screen.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
