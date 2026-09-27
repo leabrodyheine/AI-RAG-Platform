@@ -59,6 +59,14 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getAllByRole("cell")).toHaveLength(16);
   expect(screen.getByText("POST /search")).toBeInTheDocument();
   expect(screen.queryByText("POST /retrieve")).not.toBeInTheDocument();
+  expect(screen.getByRole("meter", { name: "GPU utilization" })).toHaveAttribute(
+    "aria-valuenow",
+    "71",
+  );
+  expect(screen.getByRole("meter", { name: "Retrieval load" })).toHaveAttribute(
+    "aria-valuenow",
+    "78",
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "6h" }));
   expect(screen.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");

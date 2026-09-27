@@ -90,7 +90,16 @@ export function MonitoringWorkspace() {
             <span className="healthy-chip"><CheckCircle2 size={12} />Healthy</span>
           </div>
           <div className="gauge-layout">
-            <div className="radial-gauge"><span><strong>71</strong>%</span></div>
+            <div
+              aria-label="GPU utilization"
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={71}
+              className="radial-gauge"
+              role="meter"
+            >
+              <span><strong>71</strong>%</span>
+            </div>
             <div className="gauge-copy"><strong>NVIDIA A10G</strong><span>vLLM · meta-llama/8B</span></div>
           </div>
           <dl className="resource-list">
@@ -110,7 +119,16 @@ export function MonitoringWorkspace() {
               <div className="service-row" key={service.name}>
                 <span className="service-icon"><Server size={15} /></span>
                 <span><strong>{service.name}</strong><small>{service.detail}</small></span>
-                <div className="load-meter"><i style={{ width: `${service.load}%` }} /></div>
+                <div
+                  aria-label={`${service.name} load`}
+                  aria-valuemax={100}
+                  aria-valuemin={0}
+                  aria-valuenow={service.load}
+                  className="load-meter"
+                  role="meter"
+                >
+                  <i style={{ width: `${service.load}%` }} />
+                </div>
                 <code>{service.latency}</code>
                 <span className="healthy-chip"><CheckCircle2 size={12} />{service.status}</span>
               </div>
