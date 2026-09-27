@@ -23,6 +23,7 @@ test("moves between evaluation and monitoring workspaces", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Evaluations" }));
   expect(screen.getByRole("heading", { name: "Evaluation lab" })).toBeInTheDocument();
+  expect(screen.getByText("Completed 12 minutes ago")).toHaveAttribute("role", "status");
   expect(screen.queryByText("#1838")).not.toBeInTheDocument();
   const comparisonTable = screen.getByRole("table", { name: "Evaluation comparison" });
   expect(within(comparisonTable).getAllByRole("columnheader")).toHaveLength(4);

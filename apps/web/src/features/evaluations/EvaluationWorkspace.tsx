@@ -72,7 +72,7 @@ export function EvaluationWorkspace() {
           <div>
             <span className="section-label">Active comparison</span>
             <h2>Agentic RAG candidate</h2>
-            <p>{lastRun}</p>
+            <p role="status">{lastRun}</p>
           </div>
           <label className="select-button">
             <span className="sr-only">Evaluation dataset</span>
