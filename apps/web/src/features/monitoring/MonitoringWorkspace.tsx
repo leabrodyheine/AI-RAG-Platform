@@ -55,7 +55,14 @@ export function MonitoringWorkspace() {
               <button aria-pressed={timeRange === range} key={range} onClick={() => setTimeRange(range)} type="button">{range}</button>
             ))}
           </div>
-          <button aria-label="Refresh metrics" className="secondary-button" onClick={refresh} type="button">
+          <button
+            aria-busy={refreshing}
+            aria-label={refreshing ? "Refreshing metrics" : "Refresh metrics"}
+            className="secondary-button"
+            disabled={refreshing}
+            onClick={refresh}
+            type="button"
+          >
             <RefreshCw className={refreshing ? "spin" : undefined} size={15} />
           </button>
         </div>

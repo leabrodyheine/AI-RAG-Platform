@@ -69,6 +69,13 @@ test("moves between evaluation and monitoring workspaces", () => {
     "78",
   );
 
+  fireEvent.click(screen.getByRole("button", { name: "Refresh metrics" }));
+  expect(screen.getByRole("button", { name: "Refreshing metrics" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Refreshing metrics" })).toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+
   fireEvent.click(screen.getByRole("button", { name: "6h" }));
   expect(screen.getByRole("button", { name: "6h" })).toHaveAttribute("aria-pressed", "true");
 });
