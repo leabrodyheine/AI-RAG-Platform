@@ -157,7 +157,7 @@ export function MonitoringWorkspace() {
             </div>
             {traces.map((trace) => (
               <div className="trace-row" role="row" key={trace.id}>
-                <code role="cell">{trace.id}</code><strong role="cell">{trace.route}</strong><span role="cell">{trace.spans} spans</span>
+                <code role="rowheader">{trace.id}</code><strong role="cell">{trace.route}</strong><span role="cell">{trace.spans} spans</span>
                 <span role="cell" className={trace.status === "slow" ? "trace-duration trace-duration--slow" : "trace-duration"}>{trace.duration}</span>
               </div>
             ))}

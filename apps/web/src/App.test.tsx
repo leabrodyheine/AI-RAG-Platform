@@ -27,10 +27,12 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.queryByText("#1838")).not.toBeInTheDocument();
   const comparisonTable = screen.getByRole("table", { name: "Evaluation comparison" });
   expect(within(comparisonTable).getAllByRole("columnheader")).toHaveLength(4);
-  expect(within(comparisonTable).getAllByRole("cell")).toHaveLength(24);
+  expect(within(comparisonTable).getAllByRole("rowheader")).toHaveLength(6);
+  expect(within(comparisonTable).getAllByRole("cell")).toHaveLength(18);
   const recentRunsTable = screen.getByRole("table", { name: "Recent evaluation runs" });
   expect(within(recentRunsTable).getAllByRole("columnheader")).toHaveLength(5);
-  expect(within(recentRunsTable).getAllByRole("cell")).toHaveLength(15);
+  expect(within(recentRunsTable).getAllByRole("rowheader")).toHaveLength(3);
+  expect(within(recentRunsTable).getAllByRole("cell")).toHaveLength(12);
 
   const evidenceButton = screen.getByRole("button", { name: "View evidence" });
   expect(evidenceButton).toHaveAttribute("aria-controls", "evaluation-evidence");
@@ -57,7 +59,8 @@ test("moves between evaluation and monitoring workspaces", () => {
   expect(screen.getByRole("group", { name: "Monitoring time range" })).toBeInTheDocument();
   expect(screen.getByRole("table", { name: "Recent traces" })).toBeInTheDocument();
   expect(screen.getAllByRole("columnheader")).toHaveLength(4);
-  expect(screen.getAllByRole("cell")).toHaveLength(16);
+  expect(screen.getAllByRole("rowheader")).toHaveLength(4);
+  expect(screen.getAllByRole("cell")).toHaveLength(12);
   expect(screen.getByText("POST /search")).toBeInTheDocument();
   expect(screen.queryByText("POST /retrieve")).not.toBeInTheDocument();
   expect(screen.getByRole("meter", { name: "GPU utilization" })).toHaveAttribute(

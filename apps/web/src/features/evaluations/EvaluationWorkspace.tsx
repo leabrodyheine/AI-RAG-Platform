@@ -94,7 +94,7 @@ export function EvaluationWorkspace() {
           </div>
           {metrics.map((metric) => (
             <div className="comparison-row" role="row" key={metric.label}>
-              <strong role="cell">{metric.label}</strong>
+              <strong role="rowheader">{metric.label}</strong>
               <span role="cell">{metric.baseline}</span>
               <span role="cell">{metric.candidate}</span>
               <span role="cell" className={metric.positive ? "delta delta--positive" : "delta delta--negative"}>
@@ -152,7 +152,7 @@ export function EvaluationWorkspace() {
           </div>
           {recentRuns.slice(0, showAllRuns ? recentRuns.length : 3).map((run) => (
             <div className="run-row" role="row" key={run.id}>
-              <code role="cell">{run.id}</code>
+              <code role="rowheader">{run.id}</code>
               <span role="cell"><strong>{run.name}</strong><small>{run.dataset}</small></span>
               <strong role="cell">{run.score}</strong>
               <span role="cell" className={run.status === "Passed" ? "run-status run-status--passed" : "run-status run-status--review"}>
