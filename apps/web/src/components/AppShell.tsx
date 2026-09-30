@@ -25,6 +25,9 @@ const navigation = [
 export function AppShell({ activeSection, children, onSectionChange }: AppShellProps) {
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">
@@ -75,7 +78,7 @@ export function AppShell({ activeSection, children, onSectionChange }: AppShellP
         </div>
       </aside>
 
-      <main className="app-shell__content">{children}</main>
+      <main className="app-shell__content" id="main-content">{children}</main>
     </div>
   );
 }

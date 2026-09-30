@@ -15,7 +15,11 @@ test("opens on the investigation workspace", () => {
   expect(screen.getByText("Start an investigation")).toBeInTheDocument();
   expect(screen.queryByText("Demo data")).not.toBeInTheDocument();
   expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
-  expect(screen.getByRole("main")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute(
+    "href",
+    "#main-content",
+  );
+  expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
 });
 
 test("moves between evaluation and monitoring workspaces", () => {

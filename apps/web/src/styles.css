@@ -48,6 +48,22 @@ textarea:focus-visible {
   border: 0;
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 20;
+  top: 8px;
+  left: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  border-radius: 6px;
+  background: var(--accent);
+  transform: translateY(calc(-100% - 8px));
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 244px minmax(0, 1fr);
